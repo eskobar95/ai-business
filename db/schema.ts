@@ -43,15 +43,15 @@ export const businesses = pgTable(
     derivedFromTemplateVersion: text("derived_from_template_version"),
     /** True after enterprise template seed completes (dashboard one-click or CLI). */
     templateSeeded: boolean("template_seeded").notNull().default(false),
-    /** Branch som agenter syncer til og PR'er merges til for at åbne gates. */
+    /** Branch agents sync to and where PRs merge to open gates. */
     integrationBranch: text("integration_branch"),
-    /** Release-branch — kun menneskegodkendt merge; ingen auto-gate. */
+    /** Release branch — human-approved merges only; no automatic gate. */
     releaseBranch: text("release_branch"),
-    /** Max antal parallelle agent-runs for dette workspace. null = ubegrænset. */
+    /** Max parallel agent runs for this workspace; null = unlimited. */
     maxParallelRuns: integer("max_parallel_runs"),
-    /** Default Cursor model for agenter med cursorModelId='inherit'. null = platform default. */
+    /** Default Cursor model for agents with cursorModelId='inherit'; null = platform default. */
     defaultCursorModelId: text("default_cursor_model_id"),
-    /** Default Cursor thinking effort for agenter med cursorThinkingEffort='inherit'. */
+    /** Default Cursor thinking effort for agents with cursorThinkingEffort='inherit'. */
     defaultCursorThinkingEffort: text("default_cursor_thinking_effort"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -101,22 +101,22 @@ export const systemRoles = pgTable(
     /** When true, runners include business-scope memory markdown in prompts. */
     includeBusinessContext: boolean("include_business_context").notNull().default(false),
     /**
-     * Runner kører git-preflight (fetch, checkout integrationBranch, worktree) for denne rolle.
-     * Typisk true for developer/engineer/lead. False for analyst, ux_designer.
+     * Runner performs git preflight (fetch, checkout integration branch, worktree) for this role.
+     * Typically true for developer/engineer/lead; false for analyst, ux_designer.
      */
     requiresGitWorkspace: boolean("requires_git_workspace").notNull().default(false),
     /**
-     * Agent med denne rolle må kalde promoteTaskToTodo Server Action.
-     * Kombineres med teamets leadAgentId check.
+     * Agents with this role may call the promoteTaskToTodo server action.
+     * Combined with the team's leadAgentId check.
      */
     mayPromoteBacklogToTodo: boolean("may_promote_backlog_to_todo").notNull().default(false),
     /**
-     * Gate-check for tasks assignet til denne rolle inkluderer prMergedToIntegration.
-     * Typisk true for developer; false for analyst/researcher.
+     * Gate evaluation for tasks assigned to this role includes prMergedToIntegration.
+     * Typically true for developer; false for analyst/researcher.
      */
     requiresPrMergeGate: boolean("requires_pr_merge_gate").notNull().default(false),
     /**
-     * Agenten er lead-type og må modtage lead_heartbeat events i runner.
+     * Lead-style role that may receive lead_heartbeat events in the runner.
      */
     runsHeartbeat: boolean("runs_heartbeat").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -186,22 +186,22 @@ export const agents = pgTable(
     iconKey: text("icon_key"),
     reportsToAgentId: uuid("reports_to_agent_id"),
     /**
-     * Cursor model til runs for denne agent.
-     * 'auto' = Cursor vælger (felt sendes ikke til SDK).
-     * 'inherit' = arver fra business default → platform default.
-     * Konkret slug (fx 'claude-sonnet-4') = bruges direkte.
+     * Cursor model for runs for this agent.
+     * 'auto' — Cursor chooses (omit field when calling SDK).
+     * 'inherit' — inherit from business default, then platform default.
+     * Concrete slug (e.g. 'claude-sonnet-4') — use as-is.
      */
     cursorModelId: text("cursor_model_id").notNull().default("auto"),
     /**
      * Cursor thinking effort.
-     * 'auto' = Cursor vælger. 'inherit' = arver fra business. Konkret = 'low'|'medium'|'high'.
+     * 'auto' — Cursor chooses. 'inherit' — inherit from business. Concrete values: 'low' | 'medium' | 'high'.
      */
     cursorThinkingEffort: text("cursor_thinking_effort").notNull().default("auto"),
-    /** Reserveret til fremtidig Cursor runtime-profil. */
+    /** Reserved for future Cursor runtime profile. */
     cursorRuntimeProfile: text("cursor_runtime_profile").notNull().default("auto"),
     /**
-     * Max antal tasks denne agent (hvis lead/heartbeat) må promovere fra backlog→todo pr. heartbeat-tick.
-     * Default 3. Kun relevant hvis system_role.runsHeartbeat = true.
+     * Max tasks this agent (when lead/heartbeat) may promote from backlog→todo per heartbeat tick.
+     * Default 3. Only meaningful when system_role.runsHeartbeat = true.
      */
     heartbeatPromotionCap: integer("heartbeat_promotion_cap").notNull().default(3),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -752,20 +752,20 @@ export const tasks = pgTable(
     storyPoints: integer("story_points"),
     blockedReason: text("blocked_reason"),
     approvalId: uuid("approval_id"),
-    /** FK til anden task (same business); denne task må ikke auto-starte før dependency er done. */
+    /** Other task in the same business this task must not auto-start before (FK); cleared when dependency is done. */
     dependencyTaskId: uuid("dependency_task_id"),
-    /** GitHub PR-nummer linket til denne task (valideret mod githubRepoInstallationId). */
+    /** GitHub PR number for this task (validated against githubRepoInstallationId in app layer). */
     githubPrNumber: integer("github_pr_number"),
-    /** FK til github_installations; identificerer repo PR tilhører. */
+    /** FK to github_installations; identifies which repo the PR belongs to. */
     githubRepoInstallationId: uuid("github_repo_installation_id").references(
       () => githubInstallations.id,
       { onDelete: "set null" },
     ),
-    /** Synkroniseret fra GitHub webhook: 'draft'|'open'|'approved'|'merged'|'closed'. */
+    /** Synced from GitHub webhook: 'draft' | 'open' | 'approved' | 'merged' | 'closed'. */
     githubPrStatus: text("github_pr_status"),
-    /** True når GitHub bekræfter PR er merged til business.integrationBranch. */
+    /** True when GitHub confirms the PR was merged into business.integrationBranch. */
     prMergedToIntegration: boolean("pr_merged_to_integration").notNull().default(false),
-    /** Tidspunkt hvor alle gates sidst var opfyldt (audit). */
+    /** Timestamp when all gates were last satisfied (audit). */
     gatesLockedAt: timestamp("gates_locked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
