@@ -13,7 +13,10 @@ export interface GitPreflightOptions {
   eventId: string;
 }
 
-/** Safe child path inside repo root; avoids path traversal outside `root`. */
+/**
+ * Safe child path inside repo root.
+ * Uses the same sanitisation rules as `safeWorktreeBranchDir` in `worktree.ts` — keep them aligned.
+ */
 function safeWorktreePath(rootAbs: string, key: string): string {
   const safeTask = key.trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 72);
   if (!safeTask) throw new Error("Sanitized worktree key is empty");
@@ -74,8 +77,9 @@ export async function runGitPreflight(
     encoding: "utf8",
   });
   if (dirty.trim().length > 0) {
+    const lineCount = dirty.trim().split(/\r\n|\r|\n/).filter((l) => l.trim().length > 0).length;
     throw new Error(
-      `Dirty working tree — commit or stash changes before runner: ${dirty.trim().slice(0, 200)}`,
+      `Dirty working tree — commit or stash changes before runner (${lineCount} changed path(s); paths omitted from logs).`,
     );
   }
 

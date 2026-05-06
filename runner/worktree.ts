@@ -2,7 +2,10 @@ import { mkdirSync } from "node:fs";
 import { join, resolve as pathResolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
-/** Safe child path inside repo root; avoids path traversal outside `root`. */
+/**
+ * Safe child path inside repo root.
+ * Uses the same sanitisation rules as `safeWorktreePath` in `git-preflight.ts` — keep them aligned.
+ */
 function safeWorktreeBranchDir(rootAbs: string, taskId: string): string {
   const safeTask = taskId.trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 72);
   if (!safeTask) {

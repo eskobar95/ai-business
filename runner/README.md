@@ -38,6 +38,7 @@ npm run dev:full      # Next.js + runner (concurrently)
 - **Polling** skips work when the inferred **`agentId` is already in-flight**, and honours **`businesses.max_parallel_runs`** when `> 0` (`null`/≤0 ⇒ no cap).
 - **`requires_git_workspace` on system roles**: when true, the runner runs **`runner/git-preflight.ts`** (fetch, clean-tree check, checkout `integration_branch`, ff-only pull) before the Cursor sandbox; failures become `runnerError` on the event.
 - **Non-git agents** (`requires_git_workspace = false`) use `cwd = localPath` and skip git orchestration.
+- **`lead_heartbeat` events** are acknowledged as **stub** successes (no Cursor run, no memory/localPath gate) until **S7** implements the real heartbeat flow — so they do not block the queue.
 
 ## Engineer / integration branch
 

@@ -66,7 +66,7 @@ describe("runner git preflight", () => {
         businessId: "biz-1",
         eventId: "evt-2",
       }),
-    ).rejects.toThrow(/Dirty working tree/u);
+    ).rejects.toThrow(/changed path\(s\).*paths omitted/u);
   });
 
   it("bubbles fetch failures", async () => {

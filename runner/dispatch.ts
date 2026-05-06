@@ -212,6 +212,9 @@ export async function dispatchOrchestrationEvent(
   const started = Date.now();
   try {
     await logAgentLifecycleStatus(businessId, agentId, "working", { source: "runner", eventId });
+    // `cursorConfig.thinkingEffort` is stored on the finished event for observability.
+    // `@cursor/sdk` Agent.create typing in this version only exposes `model` + `local` here; if the SDK
+    // adds a first-class effort/extended-thinking field, wire it alongside `model`.
     agentSdk = await Agent.create({
       apiKey: apiKey.trim(),
       ...(cursorConfig.modelId ? { model: { id: cursorConfig.modelId } } : {}),

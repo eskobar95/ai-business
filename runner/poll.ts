@@ -26,6 +26,24 @@ function unbumpBusinessConcurrent(businessId: string): void {
 
 export async function pollOnce(): Promise<void> {
   const pending = await listPendingOrchestrationEvents(8);
+  /** Dedupe DB reads when several pending rows share the same business in one tick. */
+  const leadAgentCache = new Map<string, string | null>();
+  const maxParallelCache = new Map<string, number | null>();
+
+  async function getCachedLeadAgent(businessId: string): Promise<string | null> {
+    if (!leadAgentCache.has(businessId)) {
+      leadAgentCache.set(businessId, await getLeadAgentIdForBusiness(businessId));
+    }
+    return leadAgentCache.get(businessId) ?? null;
+  }
+
+  async function getCachedMaxParallel(businessId: string): Promise<number | null> {
+    if (!maxParallelCache.has(businessId)) {
+      maxParallelCache.set(businessId, await getBusinessMaxParallelRuns(businessId));
+    }
+    return maxParallelCache.get(businessId) ?? null;
+  }
+
   for (const row of pending) {
     if (inFlight.has(row.id)) continue;
 
@@ -38,13 +56,13 @@ export async function pollOnce(): Promise<void> {
 
     const agentOverride = pickAgentIdOverrideFromOrchestrationPayload(payload);
     const resolvedAgentId =
-      agentOverride ?? (full.businessId ? await getLeadAgentIdForBusiness(full.businessId) : null);
+      agentOverride ?? (full.businessId ? await getCachedLeadAgent(full.businessId) : null);
 
     const businessId = full.businessId;
 
     if (resolvedAgentId && agentInFlight.has(resolvedAgentId)) continue;
 
-    const maxParallel = businessId != null ? await getBusinessMaxParallelRuns(businessId) : null;
+    const maxParallel = businessId != null ? await getCachedMaxParallel(businessId) : null;
     if (maxParallel !== null && maxParallel > 0 && businessId) {
       const current = businessInFlight.get(businessId) ?? 0;
       if (current >= maxParallel) continue;
@@ -91,6 +109,10 @@ export async function pollOnce(): Promise<void> {
       } finally {
         reconcileInFlightSets();
       }
-    })();
+    })().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      // eslint-disable-next-line no-console -- runner process has no shared logger yet
+      console.error(`[runner/poll] Unhandled error for event ${row.id}:`, msg);
+    });
   }
 }
