@@ -112,13 +112,9 @@ export async function promoteTaskToTodo(taskId: string): Promise<void>
 
 **Ny fil:** `lib/tasks/promotion-auth.ts`
 
-```typescript
-export const PROMOTION_ALLOWLIST_SLUGS = [
-  "engineering_manager",
-  "product_owner",
-  "lead",
-] as const;
+Authoritativ policy er **`system_roles.may_promote_backlog_to_todo`** og **team lead** — ikke en slug-allowlist i koden (typiske seed-slugs: `engineering_manager`, `product_owner`, `lead`).
 
+```typescript
 /**
  * Kaster hvis caller ikke har ret til at promovere taskId fra backlog→todo.
  *

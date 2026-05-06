@@ -51,6 +51,11 @@ export function StatusDropdown({
             <button
               key={s}
               type="button"
+              title={
+                s === "todo"
+                  ? "Agent starts automatically when gates are green."
+                  : undefined
+              }
               onClick={() => {
                 onChange(s);
                 setOpen(false);

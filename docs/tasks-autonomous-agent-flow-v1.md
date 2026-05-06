@@ -266,6 +266,8 @@ Guards (i rækkefølge):
 4. Opdater `status = 'todo'`.
 5. Log `task.promoted_to_todo` event.
 
+**Note:** `updateTaskStatus` fra `backlog` → `todo` delegerer til samme promotion-sti (samme `logEvent`, nulstiller `blocked_reason` og `approval_id` som ved andre statusskift væk fra `in_review`).
+
 ---
 
 ### T4.2 — Promotion-autorisering
@@ -283,7 +285,7 @@ export async function assertMayPromoteToTodo(
 - **Human:** `assertUserBusinessAccess` (alle mennesker med business-adgang).
 - **Agent:** Check `system_role.mayPromoteBacklogToTodo = true` **eller** `teams.leadAgentId = agentId` for det team task hører under.
 
-**`PROMOTION_ALLOWLIST_SLUGS`** — konstant i filen: `['engineering_manager', 'product_owner', 'lead']`.
+  (_Typiske role-slugs i seed, ikke en kode-allowlist:_ `engineering_manager`, `product_owner`, `lead` — sandheden er `may_promote_backlog_to_todo` på `system_roles`.)
 
 **Test:** Vitest for alle cases (human ok, lead-agent ok, worker-agent rejected, wrong-business rejected).
 
@@ -294,7 +296,7 @@ export async function assertMayPromoteToTodo(
 **Fil:** `components/tasks/task-detail-sidebar.tsx`
 
 - Dropdown: søg og vælg én "Blokkeret af"-task (fra samme business, ikke sig selv).
-- Server Action: `updateTaskDependency(taskId, dependencyTaskId | null)`.
+- Server Action: `updateTaskDependency(taskId, dependencyTaskId | null)` — afviser **cirkulære** dependency-kæder (finder ved at gå `dependency_task_id` fra den valgte task).
 - Vis dependency-status inline (badge med status-farve).
 - Tooltip: "Task kan ikke auto-starte før denne er done."
 
