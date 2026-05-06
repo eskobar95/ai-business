@@ -674,6 +674,7 @@ export const approvals = pgTable(
 
 export const taskStatusEnum = pgEnum("task_status", [
   "backlog",
+  "todo",
   "in_progress",
   "blocked",
   "in_review",
