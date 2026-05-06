@@ -11,6 +11,7 @@ import { SettingsBusinessProfileSection } from "./settings-business-profile-sect
 import { SettingsBusinessSection } from "./settings-business-section";
 import { SettingsMcpSection } from "./settings-mcp-section";
 import { SettingsWebhooksSection } from "./settings-webhooks-section";
+import { SettingsIntegrationsSection } from "./settings-integrations-section";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ function parseSection(raw: string | undefined): SettingsSectionId {
     raw === "business" ||
     raw === "workspace" ||
     raw === "mcp" ||
-    raw === "webhooks"
+    raw === "webhooks" ||
+    raw === "integrations"
   ) {
     return raw;
   }
@@ -30,7 +32,7 @@ function parseSection(raw: string | undefined): SettingsSectionId {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ businessId?: string; section?: string }>;
+  searchParams: Promise<{ businessId?: string; section?: string; github?: string }>;
 }) {
   const { data: session } = await auth.getSession();
   if (!session?.user?.id) redirect("/auth/sign-in");
@@ -39,6 +41,7 @@ export default async function SettingsPage({
   const sp = await searchParams;
   const businessId = await resolveBusinessIdParam(sp.businessId, "/dashboard/settings");
   const section = parseSection(sp.section);
+  const githubFlash = typeof sp.github === "string" ? sp.github : undefined;
 
   if (businesses.length === 0) {
     return (
@@ -78,6 +81,10 @@ export default async function SettingsPage({
     webhooks: {
       title: "Webhooks",
       description: "Inbound webhooks and delivery audit log for this workspace.",
+    },
+    integrations: {
+      title: "Integrations",
+      description: "Connect external services such as GitHub for agent automation.",
     },
   };
 
@@ -121,6 +128,9 @@ export default async function SettingsPage({
           ) : null}
           {section === "mcp" ? <SettingsMcpSection businessId={businessId} /> : null}
           {section === "webhooks" ? <SettingsWebhooksSection businessId={businessId} /> : null}
+          {section === "integrations" ? (
+            <SettingsIntegrationsSection businessId={businessId} flash={githubFlash} />
+          ) : null}
         </div>
       </div>
     </div>

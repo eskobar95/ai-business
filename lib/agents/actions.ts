@@ -6,9 +6,13 @@ import { agentDocuments, agents, teams } from "@/db/schema";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { and, asc, eq } from "drizzle-orm";
 
+import type { AgentCommunicationCanvasRow } from "@/lib/agents/communication-canvas";
+
 import { validateReportsToForBusiness } from "./reports-cycle";
 
 import { resolveAvatarColumnsForUpsert } from "@/lib/agents/avatar-upsert";
+
+export type { AgentCommunicationCanvasRow } from "@/lib/agents/communication-canvas";
 
 /** Columns persisted on `agents` (no legacy `instructions` column; soul is in `agent_documents`). */
 const agentsPublicColumns = {
@@ -246,6 +250,29 @@ export async function listAgentSummariesByBusiness(
   const db = getDb();
   return db
     .select({ id: agents.id, name: agents.name })
+    .from(agents)
+    .where(eq(agents.businessId, businessId))
+    .orderBy(asc(agents.name));
+}
+
+/**
+ * Lists agents for the communication canvas graph (no soul/instructions fetch).
+ */
+export async function listAgentsForCommunicationCanvas(
+  businessId: string,
+): Promise<AgentCommunicationCanvasRow[]> {
+  await ensureBusinessMembership(businessId);
+  const db = getDb();
+  return db
+    .select({
+      id: agents.id,
+      slug: agents.slug,
+      name: agents.name,
+      role: agents.role,
+      tier: agents.tier,
+      avatarUrl: agents.avatarUrl,
+      iconKey: agents.iconKey,
+    })
     .from(agents)
     .where(eq(agents.businessId, businessId))
     .orderBy(asc(agents.name));

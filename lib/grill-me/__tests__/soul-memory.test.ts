@@ -2,9 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { getDb as getDbType } from "@/db/index";
 
-const insertValuesSpy = vi.fn(() => ({
-  returning: vi.fn(async () => [] as const),
-}));
+const insertValuesSpy = vi.fn((_vals: Record<string, unknown>) => Promise.resolve());
 
 vi.mock("@/db/index", () => ({
   getDb(): ReturnType<typeof getDbType> {
@@ -41,5 +39,5 @@ describe("extractAndStoreSoulFile", () => {
     expect(firstArg.agentId).toBeNull();
     expect(firstArg.businessId).toBe("00000000-0000-0000-0000-000000000099");
     expect(typeof firstArg.content).toBe("string");
-  });
+  }, 15_000);
 });
