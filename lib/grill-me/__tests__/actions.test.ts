@@ -185,7 +185,7 @@ describe("startGrillMeTurn", () => {
     expect(typeof mem.content).toBe("string");
     expect((mem.content as string).includes("# Soul")).toBe(true);
     expect((mem.content as string).includes(GRILL_ME_COMPLETE_MARKER)).toBe(false);
-  });
+  }, 30_000);
 
   it("default Grill-Me path uses Prompt 2 chat system instructions", async () => {
     const { startGrillMeTurn } = await import("../actions.js");

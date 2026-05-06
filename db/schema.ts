@@ -41,6 +41,8 @@ export const businesses = pgTable(
     templateVersion: text("template_version"),
     derivedFromTemplateId: text("derived_from_template_id"),
     derivedFromTemplateVersion: text("derived_from_template_version"),
+    /** True after enterprise template seed completes (dashboard one-click or CLI). */
+    templateSeeded: boolean("template_seeded").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("businesses_created_at_idx").on(t.createdAt)],
@@ -188,6 +190,37 @@ export const agentDocuments = pgTable(
   (t) => [
     uniqueIndex("agent_documents_agent_id_slug_unique").on(t.agentId, t.slug),
     index("agent_documents_agent_id_idx").on(t.agentId),
+  ],
+);
+
+/** Scheduled recurring prompts for an agent (cron + human label); runner invokes spawn post-MVP. */
+export const routines = pgTable(
+  "routines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    cronExpression: text("cron_expression").notNull(),
+    humanSchedule: text("human_schedule").notNull(),
+    prompt: text("prompt").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.businessId, t.agentId],
+      foreignColumns: [agents.businessId, agents.id],
+    }).onDelete("cascade"),
+    index("routines_business_id_idx").on(t.businessId),
+    index("routines_agent_id_idx").on(t.agentId),
+    index("routines_is_active_next_run_at_idx").on(t.isActive, t.nextRunAt),
   ],
 );
 
@@ -724,6 +757,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   gateKindsMany: many(gateKinds),
   communicationEdgesMany: many(communicationEdges),
   agentJobsMany: many(agentJobs),
+  routinesMany: many(routines),
 }));
 
 export const userSettingsRelations = relations(userSettings, () => ({}));
@@ -787,11 +821,23 @@ export const agentsRelations = relations(agents, ({ one, many }) => ({
   mcpAccessRows: many(agentMcpAccess),
   approvals: many(approvals),
   tasksAssigned: many(tasks),
+  routinesMany: many(routines),
 }));
 
 export const agentDocumentsRelations = relations(agentDocuments, ({ one }) => ({
   agent: one(agents, {
     fields: [agentDocuments.agentId],
+    references: [agents.id],
+  }),
+}));
+
+export const routinesRelations = relations(routines, ({ one }) => ({
+  business: one(businesses, {
+    fields: [routines.businessId],
+    references: [businesses.id],
+  }),
+  agent: one(agents, {
+    fields: [routines.agentId],
     references: [agents.id],
   }),
 }));
