@@ -166,6 +166,25 @@ export const agents = pgTable(
     /** Platform icon slug from the picker (e.g. bot, shield). Nullable when avatar_url is used. */
     iconKey: text("icon_key"),
     reportsToAgentId: uuid("reports_to_agent_id"),
+    /**
+     * Cursor model til runs for denne agent.
+     * 'auto' = Cursor vælger (felt sendes ikke til SDK).
+     * 'inherit' = arver fra business default → platform default.
+     * Konkret slug (fx 'claude-sonnet-4') = bruges direkte.
+     */
+    cursorModelId: text("cursor_model_id").notNull().default("auto"),
+    /**
+     * Cursor thinking effort.
+     * 'auto' = Cursor vælger. 'inherit' = arver fra business. Konkret = 'low'|'medium'|'high'.
+     */
+    cursorThinkingEffort: text("cursor_thinking_effort").notNull().default("auto"),
+    /** Reserveret til fremtidig Cursor runtime-profil. */
+    cursorRuntimeProfile: text("cursor_runtime_profile").notNull().default("auto"),
+    /**
+     * Max antal tasks denne agent (hvis lead/heartbeat) må promovere fra backlog→todo pr. heartbeat-tick.
+     * Default 3. Kun relevant hvis system_role.runsHeartbeat = true.
+     */
+    heartbeatPromotionCap: integer("heartbeat_promotion_cap").notNull().default(3),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
