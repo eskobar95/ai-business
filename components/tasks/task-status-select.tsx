@@ -9,6 +9,7 @@ import { updateTaskStatus } from "@/lib/tasks/actions";
 
 const OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: "backlog", label: "Backlog" },
+  { value: "todo", label: "Todo" },
   { value: "in_progress", label: "In progress" },
   { value: "blocked", label: "Blocked" },
   { value: "in_review", label: "In review" },

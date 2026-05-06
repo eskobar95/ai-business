@@ -5,6 +5,7 @@ import { TaskCard } from "./task-card";
 
 const COLUMN_ORDER: TaskStatus[] = [
   "backlog",
+  "todo",
   "in_progress",
   "blocked",
   "in_review",
@@ -13,6 +14,7 @@ const COLUMN_ORDER: TaskStatus[] = [
 
 const COLUMN_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
+  todo: "Todo",
   in_progress: "In progress",
   blocked: "Blocked",
   in_review: "In review",
@@ -32,7 +34,7 @@ export function TaskStatusBoard({
 }) {
   return (
     <div
-      className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+      className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
       data-testid="task-status-board"
     >
       {COLUMN_ORDER.map((status) => (

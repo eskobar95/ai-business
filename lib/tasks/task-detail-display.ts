@@ -35,10 +35,18 @@ export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string }>
 
 export const PRIORITIES: Priority[] = ["urgent", "high", "medium", "low", "none"];
 
-export const STATUSES: TaskStatus[] = ["backlog", "in_progress", "blocked", "in_review", "done"];
+export const STATUSES: TaskStatus[] = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "blocked",
+  "in_review",
+  "done",
+];
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/30",
+  todo: "bg-indigo-400 animate-pulse",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",
@@ -47,6 +55,7 @@ export const STATUS_DOT: Record<TaskStatus, string> = {
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
+  todo: "Todo",
   in_progress: "In progress",
   blocked: "Blocked",
   in_review: "In review",

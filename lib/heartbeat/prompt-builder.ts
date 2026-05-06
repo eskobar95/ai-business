@@ -95,7 +95,7 @@ async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPro
     .select({ title: tasks.title, description: tasks.description })
     .from(tasks)
     .where(
-      and(eq(tasks.agentId, agentId), inArray(tasks.status, ["backlog", "in_progress"])),
+      and(eq(tasks.agentId, agentId), inArray(tasks.status, ["backlog", "todo", "in_progress"])),
     );
 
   const agentTaskIds = await db

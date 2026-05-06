@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 function groupByStatus<T extends { status: TaskStatus }>(rows: T[]): Record<TaskStatus, T[]> {
   const empty: Record<TaskStatus, T[]> = {
     backlog: [],
+    todo: [],
     in_progress: [],
     blocked: [],
     in_review: [],

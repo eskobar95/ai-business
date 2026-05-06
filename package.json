@@ -17,6 +17,7 @@
     "db:reset-app-data": "node scripts/db-reset-app-data.mjs",
     "db:reset-user-tenant-data": "node scripts/db-reset-user-tenant-data.mjs",
     "db:seed": "tsx db/seeds/archetypes.ts",
+    "db:seed-system-roles": "npx tsx scripts/seed-system-roles.ts",
     "apm:tasks-from-plan": "node scripts/split-phase2-plan-tasks.mjs",
     "apm:collect-transcript-writes": "node scripts/collect-apm-transcript-writes.mjs",
     "runner": "tsx runner/index.ts",

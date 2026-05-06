@@ -29,6 +29,10 @@ const agentsPublicColumns = {
   avatarUrl: true,
   iconKey: true,
   reportsToAgentId: true,
+  cursorModelId: true,
+  cursorThinkingEffort: true,
+  cursorRuntimeProfile: true,
+  heartbeatPromotionCap: true,
   createdAt: true,
   updatedAt: true,
 } as const;
