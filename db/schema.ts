@@ -272,7 +272,10 @@ export const routines = pgTable(
   ],
 );
 
-/** Markdown memory PARA-style; scoped to business-wide or agent-specific rows. */
+/**
+ * PARA-style memory; scoped to business-wide or agent-specific rows.
+ * `content` format depends on the writer (e.g. markdown from Grill-Me soul capture, HTML from workspace settings editor).
+ */
 export const memory = pgTable(
   "memory",
   {
@@ -282,7 +285,7 @@ export const memory = pgTable(
       .references(() => businesses.id, { onDelete: "cascade" }),
     agentId: uuid("agent_id").references(() => agents.id, { onDelete: "cascade" }),
     scope: memoryScopeEnum("scope").notNull(),
-    /** Markdown body. */
+    /** Stored body as produced by the writer (markdown or HTML); not normalized across flows. */
     content: text("content").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     version: integer("version").notNull().default(1),

@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 
 import type { SettingsSectionId } from "@/components/settings/settings-subnav";
+import { BranchSettingsForm } from "@/components/settings/branch-settings-form";
+import { CursorDefaultsForm } from "@/components/settings/cursor-defaults-form";
+import { MemoryEditor } from "@/components/settings/memory-editor";
+import { ParallelSettingsForm } from "@/components/settings/parallel-settings-form";
 import { SettingsSubNav } from "@/components/settings/settings-subnav";
 import { auth } from "@/lib/auth/server";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
@@ -20,6 +24,8 @@ function parseSection(raw: string | undefined): SettingsSectionId {
     raw === "account" ||
     raw === "business" ||
     raw === "workspace" ||
+    raw === "execution" ||
+    raw === "memory" ||
     raw === "mcp" ||
     raw === "webhooks" ||
     raw === "integrations"
@@ -74,6 +80,15 @@ export default async function SettingsPage({
       title: "Workspace",
       description: "Configure paths and metadata so Cursor CLI can find this project locally.",
     },
+    execution: {
+      title: "Workspace execution",
+      description:
+        "Branches for integration and release, parallel run limits, and default Cursor model settings.",
+    },
+    memory: {
+      title: "Business memory",
+      description: "Markdown and rich notes injected into agent runs when business context is enabled.",
+    },
     mcp: {
       title: "MCP Library",
       description: "Connect MCP servers and map credentials to agents for this workspace.",
@@ -125,6 +140,42 @@ export default async function SettingsPage({
           ) : null}
           {section === "workspace" ? (
             <SettingsBusinessSection businessId={businessId} business={businessRow} />
+          ) : null}
+          {section === "execution" ? (
+            <div className="flex max-w-3xl flex-col gap-12">
+              <div>
+                <h3 className="mb-4 text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                  Branch settings
+                </h3>
+                <BranchSettingsForm
+                  businessId={businessId}
+                  initialIntegrationBranch={businessRow.integrationBranch}
+                  initialReleaseBranch={businessRow.releaseBranch}
+                />
+              </div>
+              <div>
+                <h3 className="mb-4 text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                  Parallel run limit
+                </h3>
+                <ParallelSettingsForm
+                  businessId={businessId}
+                  initialMaxParallelRuns={businessRow.maxParallelRuns}
+                />
+              </div>
+              <div>
+                <h3 className="mb-4 text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                  Cursor defaults
+                </h3>
+                <CursorDefaultsForm
+                  businessId={businessId}
+                  initialDefaultCursorModelId={businessRow.defaultCursorModelId}
+                  initialDefaultCursorThinkingEffort={businessRow.defaultCursorThinkingEffort}
+                />
+              </div>
+            </div>
+          ) : null}
+          {section === "memory" ? (
+            <MemoryEditor businessId={businessId} initialSections={businessRow.memorySections} />
           ) : null}
           {section === "mcp" ? <SettingsMcpSection businessId={businessId} /> : null}
           {section === "webhooks" ? <SettingsWebhooksSection businessId={businessId} /> : null}

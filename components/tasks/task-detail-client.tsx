@@ -46,6 +46,9 @@ type Props = {
   allTeams: { id: string; name: string }[];
   taskRelations: TaskRelationItem[];
   allTasks: { id: string; title: string; status: string; priority: string | null; project: string | null }[];
+  dependencyTask: { id: string; title: string; status: string } | null;
+  githubInstallations: { id: string; label: string }[];
+  integrationBranch: string | null;
 };
 
 function DescriptionEditor({
@@ -123,6 +126,9 @@ export function TaskDetailClient({
   allTeams: _allTeams,
   taskRelations: initialRelations,
   allTasks,
+  dependencyTask,
+  githubInstallations,
+  integrationBranch,
 }: Props) {
   const router = useRouter();
 
@@ -390,6 +396,13 @@ export function TaskDetailClient({
           onStatusChange={handleStatusChange}
           onPriorityChange={handlePriorityChange}
           onAssigneeChange={handleAssigneeChange}
+          dependencyTask={dependencyTask}
+          githubInstallations={githubInstallations}
+          integrationBranch={integrationBranch}
+          githubPrNumber={task.githubPrNumber ?? null}
+          githubRepoInstallationId={task.githubRepoInstallationId ?? null}
+          githubPrStatus={task.githubPrStatus ?? null}
+          prMergedToIntegration={task.prMergedToIntegration}
         />
       </aside>
     </div>

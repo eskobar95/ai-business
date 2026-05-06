@@ -59,7 +59,15 @@ export function TaskStatusSelect({
         }}
       >
         {OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option
+            key={o.value}
+            value={o.value}
+            title={
+              o.value === "todo"
+                ? "Agent starts automatically when gates are green."
+                : undefined
+            }
+          >
             {o.label}
           </option>
         ))}

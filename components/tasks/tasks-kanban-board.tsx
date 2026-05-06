@@ -22,7 +22,7 @@ const COLUMNS: { id: TaskStatus; title: string }[] = [
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/30",
-  todo: "bg-indigo-400 animate-pulse",
+  todo: "bg-indigo-300",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",
@@ -40,7 +40,7 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
 
 const COL_ACCENT: Record<TaskStatus, string> = {
   backlog: "text-muted-foreground/50",
-  todo: "text-indigo-400",
+  todo: "text-indigo-300",
   in_progress: "text-primary",
   blocked: "text-destructive",
   in_review: "text-amber-400",
