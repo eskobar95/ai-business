@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { assertValidAgentCursorPatchFields } from "@/lib/agents/cursor-agent-config";
+import {
+  assertValidAgentCursorPatchFields,
+  HEARTBEAT_PROMOTION_CAP_DEFAULT,
+  HEARTBEAT_PROMOTION_CAP_MAX,
+  parseHeartbeatPromotionCapFromForm,
+} from "@/lib/agents/cursor-agent-config";
 
 /**
  * `updateAgent` calls this before persisting Cursor-related columns.
@@ -43,9 +48,11 @@ describe("updateAgent — Cursor fields", () => {
     ).toThrow(/Invalid cursorThinkingEffort/);
   });
 
-  it("accepts heartbeatPromotionCap >= 1", () => {
+  it("accepts heartbeatPromotionCap in allowed range", () => {
     expect(() => assertValidAgentCursorPatchFields({ heartbeatPromotionCap: 1 })).not.toThrow();
-    expect(() => assertValidAgentCursorPatchFields({ heartbeatPromotionCap: 50 })).not.toThrow();
+    expect(() =>
+      assertValidAgentCursorPatchFields({ heartbeatPromotionCap: HEARTBEAT_PROMOTION_CAP_MAX }),
+    ).not.toThrow();
   });
 
   it("rejects heartbeatPromotionCap = 0", () => {
@@ -54,9 +61,35 @@ describe("updateAgent — Cursor fields", () => {
     );
   });
 
+  it("rejects heartbeatPromotionCap above max", () => {
+    expect(() =>
+      assertValidAgentCursorPatchFields({ heartbeatPromotionCap: HEARTBEAT_PROMOTION_CAP_MAX + 1 }),
+    ).toThrow(/at most/);
+  });
+
   it("rejects non-integer heartbeatPromotionCap", () => {
     expect(() =>
       assertValidAgentCursorPatchFields({ heartbeatPromotionCap: 1.5 as unknown as number }),
     ).toThrow(/heartbeatPromotionCap must be a positive integer/);
+  });
+});
+
+describe("parseHeartbeatPromotionCapFromForm", () => {
+  it("returns default for empty or invalid input", () => {
+    expect(parseHeartbeatPromotionCapFromForm("")).toBe(HEARTBEAT_PROMOTION_CAP_DEFAULT);
+    expect(parseHeartbeatPromotionCapFromForm("  ")).toBe(HEARTBEAT_PROMOTION_CAP_DEFAULT);
+    expect(parseHeartbeatPromotionCapFromForm("abc")).toBe(HEARTBEAT_PROMOTION_CAP_DEFAULT);
+  });
+
+  it("clamps to min and max", () => {
+    expect(parseHeartbeatPromotionCapFromForm("0")).toBe(1);
+    expect(parseHeartbeatPromotionCapFromForm("999")).toBe(HEARTBEAT_PROMOTION_CAP_MAX);
+  });
+
+  it("accepts values in range", () => {
+    expect(parseHeartbeatPromotionCapFromForm("7")).toBe(7);
+    expect(parseHeartbeatPromotionCapFromForm(String(HEARTBEAT_PROMOTION_CAP_MAX))).toBe(
+      HEARTBEAT_PROMOTION_CAP_MAX,
+    );
   });
 });

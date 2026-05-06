@@ -2,7 +2,7 @@ import { assertValidAgentAvatarUrl, normalizeAgentIconKeyForSave } from "@/lib/a
 import type { AgentPlatformIconId } from "@/lib/agents/agent-platform-icon-ids";
 
 /**
- * Resolved DB columns from a client patch (validated). Used by `updateAgentAvatar` so rules stay testable.
+ * Resolved DB columns from a client patch (validated). Used by `updateAgent` so rules stay testable.
  * Returns null when neither field should be touched.
  */
 export function resolveAvatarColumnsForUpsert(patch: {

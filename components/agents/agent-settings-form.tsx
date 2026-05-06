@@ -18,7 +18,7 @@ import { PrimaryButton } from "@/components/ui/primary-button";
 
 import { CustomSelect } from "@/components/ui/custom-select";
 
-import { updateAgent, deleteAgent, updateAgentAvatar } from "@/lib/agents/actions";
+import { updateAgent, deleteAgent } from "@/lib/agents/actions";
 import type { AgentWithInstructions } from "@/lib/agents/actions";
 import type { agents, systemRoles as systemRolesTable } from "@/db/schema";
 import type { AgentPlatformIconId } from "@/lib/agents/agent-platform-icon-ids";
@@ -30,6 +30,7 @@ import {
   assertValidAgentAvatarUrl,
   maxAvatarUploadFileBytes,
 } from "@/lib/agents/avatar-validation";
+import { parseHeartbeatPromotionCapFromForm } from "@/lib/agents/cursor-agent-config";
 import { AGENT_PLATFORM_ICONS } from "@/components/agents/agent-platform-icons";
 import { AgentRosterAvatar } from "@/components/agents/agent-roster-avatar";
 import { cn } from "@/lib/utils";
@@ -140,13 +141,6 @@ export function AgentSettingsForm({
     setError(null);
     startTransition(async () => {
       try {
-        await updateAgent(agent.id, {
-          name,
-          role,
-          reportsToAgentId: reportsToAgentId || null,
-          systemRoleId: systemRoleId || null,
-        });
-
         let nextAvatar: string | null | undefined = undefined;
         if (pickedFile) {
           nextAvatar = await readSelectedImageAsDataUrl(pickedFile);
@@ -163,7 +157,18 @@ export function AgentSettingsForm({
           nextAvatar = null;
         }
 
-        await updateAgentAvatar(agent.id, {
+        await updateAgent(agent.id, {
+          name,
+          role,
+          reportsToAgentId: reportsToAgentId || null,
+          systemRoleId: systemRoleId || null,
+          cursorModelId,
+          cursorThinkingEffort,
+          ...(showHeartbeatCap
+            ? {
+                heartbeatPromotionCap: parseHeartbeatPromotionCapFromForm(heartbeatPromotionCap),
+              }
+            : {}),
           ...(nextAvatar !== undefined ? { avatarUrl: nextAvatar } : {}),
           iconKey: selectedIcon,
         });
@@ -329,7 +334,7 @@ export function AgentSettingsForm({
         <div className="flex flex-col gap-1.5">
           <label htmlFor="agent-role" className="section-label flex items-center gap-1">
             Agent role
-            <FieldHint text="Fri tekst — vises som agentens jobtitel. Påvirker ikke runner-adfærd." />
+            <FieldHint text="Free-text job title for this agent. Does not change runner behavior." />
           </label>
           <input
             id="agent-role"

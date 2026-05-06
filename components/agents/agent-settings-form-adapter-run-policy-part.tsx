@@ -5,7 +5,12 @@ import {
   SectionDivider,
 } from "@/components/agents/agent-settings-form-fields-part";
 import { FieldHint } from "@/components/settings/field-hint";
-import { CURSOR_EFFORT_OPTIONS, CURSOR_MODEL_OPTIONS } from "@/lib/agents/cursor-agent-config";
+import {
+  CURSOR_EFFORT_OPTIONS,
+  CURSOR_MODEL_OPTIONS,
+  HEARTBEAT_PROMOTION_CAP_MAX,
+  HEARTBEAT_PROMOTION_CAP_MIN,
+} from "@/lib/agents/cursor-agent-config";
 import { cn } from "@/lib/utils";
 
 const ADAPTERS = [
@@ -28,7 +33,7 @@ type Props = {
   setCursorThinkingEffort: (v: string) => void;
   heartbeatPromotionCap: string;
   setHeartbeatPromotionCap: (v: string) => void;
-  /** Vis heartbeat promotion cap kun hvis agentens system_role har runsHeartbeat=true */
+  /** Show promotion cap only when the selected system role has `runsHeartbeat=true`. */
   showHeartbeatCap: boolean;
 };
 
@@ -97,12 +102,12 @@ export function AgentSettingsAdapterRunPolicySections({
         <div className="mb-4">
           <p className="section-label mb-2 flex items-center gap-1">
             Promotion cap per heartbeat
-            <FieldHint text="Max antal tasks denne agent må flytte fra backlog til todo pr. heartbeat-tick. Default: 3." />
+            <FieldHint text="Max backlog→todo promotions per heartbeat tick for this agent. Default: 3. Range matches server validation." />
           </p>
           <input
             type="number"
-            min={1}
-            max={50}
+            min={HEARTBEAT_PROMOTION_CAP_MIN}
+            max={HEARTBEAT_PROMOTION_CAP_MAX}
             value={heartbeatPromotionCap}
             onChange={(e) => setHeartbeatPromotionCap(e.target.value)}
             className="h-8 w-24 rounded-md border border-border bg-transparent px-3 text-[13px] text-foreground outline-none transition-colors focus:border-white/[0.18]"

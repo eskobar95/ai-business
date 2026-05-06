@@ -141,6 +141,8 @@ export async function updateAgent(
       | "cursorThinkingEffort"
       | "cursorRuntimeProfile"
       | "heartbeatPromotionCap"
+      | "avatarUrl"
+      | "iconKey"
     > & {
       instructions?: string;
     }
@@ -200,6 +202,18 @@ export async function updateAgent(
     payload.heartbeatPromotionCap = patch.heartbeatPromotionCap;
   }
 
+  let mergedAvatarFields = false;
+  if (patch.avatarUrl !== undefined || patch.iconKey !== undefined) {
+    const avatarCols = resolveAvatarColumnsForUpsert({
+      avatarUrl: patch.avatarUrl,
+      iconKey: patch.iconKey,
+    });
+    if (avatarCols) {
+      Object.assign(payload, avatarCols);
+      mergedAvatarFields = true;
+    }
+  }
+
   const shouldPatchAgentRow =
     patch.name !== undefined ||
     patch.role !== undefined ||
@@ -208,7 +222,8 @@ export async function updateAgent(
     patch.cursorModelId !== undefined ||
     patch.cursorThinkingEffort !== undefined ||
     patch.cursorRuntimeProfile !== undefined ||
-    patch.heartbeatPromotionCap !== undefined;
+    patch.heartbeatPromotionCap !== undefined ||
+    mergedAvatarFields;
 
   // Neon HTTP driver does not support `db.transaction()`; run steps sequentially.
   if (patch.instructions !== undefined) {
@@ -247,23 +262,12 @@ export async function updateAgent(
 export async function updateAgentAvatar(
   agentId: string,
   patch: { avatarUrl?: string | null; iconKey?: string | null },
-) {
-  await assertUserOwnsAgent(agentId);
-
-  const resolved = resolveAvatarColumnsForUpsert(patch);
-  if (!resolved) {
-    return;
-  }
-
-  const db = getDb();
-
-  await db
-    .update(agents)
-    .set({
-      ...resolved,
-      updatedAt: new Date(),
-    })
-    .where(eq(agents.id, agentId));
+): Promise<void> {
+  const inner: Parameters<typeof updateAgent>[1] = {};
+  if (patch.avatarUrl !== undefined) inner.avatarUrl = patch.avatarUrl;
+  if (patch.iconKey !== undefined) inner.iconKey = patch.iconKey;
+  if (Object.keys(inner).length === 0) return;
+  await updateAgent(agentId, inner);
 }
 
 export async function deleteAgent(agentId: string): Promise<void> {
