@@ -415,6 +415,37 @@ export const communicationEdges = pgTable(
   ],
 );
 
+/** AES-256-GCM payload persisted with `token_iv` — same envelope as MCP credentials (`ciphertext` + `tag` base64). */
+export type GithubInstallationTokenEncrypted = {
+  ciphertext: string;
+  tag: string;
+};
+
+/** Platform GitHub App installation bound to one business tenant. */
+export const githubInstallations = pgTable(
+  "github_installations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    installationId: text("installation_id").notNull(),
+    accountLogin: text("account_login").notNull(),
+    accountType: text("account_type").notNull().$type<"User" | "Organization">(),
+    repos: jsonb("repos").$type<string[]>().notNull().default([]),
+    tokenIv: text("token_iv"),
+    tokenEncrypted: jsonb("token_encrypted").$type<GithubInstallationTokenEncrypted | null>(),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("github_installations_business_id_unique").on(t.businessId),
+    uniqueIndex("github_installations_installation_id_unique").on(t.installationId),
+    index("github_installations_business_id_idx").on(t.businessId),
+  ],
+);
+
 /** RunPod lifecycle row for the orchestrator (single logical instance via `slug`). */
 export const runpodInstanceStateEnum = pgEnum("runpod_instance_state", [
   "cold",
