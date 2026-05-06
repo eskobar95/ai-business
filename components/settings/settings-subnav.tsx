@@ -6,6 +6,8 @@ export type SettingsSectionId =
   | "account"
   | "business"
   | "workspace"
+  | "execution"
+  | "memory"
   | "mcp"
   | "webhooks"
   | "integrations";
@@ -14,6 +16,12 @@ const ITEMS: { id: SettingsSectionId; label: string; description: string }[] = [
   { id: "account", label: "Cursor", description: "API key & runner integration" },
   { id: "business", label: "Business", description: "Profile, name & identity" },
   { id: "workspace", label: "Workspace", description: "Local path & GitHub" },
+  {
+    id: "execution",
+    label: "Execution",
+    description: "Branches, parallel cap & Cursor",
+  },
+  { id: "memory", label: "Memory", description: "Business context for agent prompts" },
   { id: "integrations", label: "Integrations", description: "GitHub App connectivity" },
   { id: "mcp", label: "MCP", description: "GitHub, Notion, Context7" },
   { id: "webhooks", label: "Webhooks", description: "Inbound triggers & log" },
