@@ -1,7 +1,7 @@
 import { getDb } from "@/db/index";
 import { businesses, githubInstallations, tasks } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 type DbClient = ReturnType<typeof getDb>;
 
@@ -143,6 +143,7 @@ export async function findGithubInstallationRow(
     .select()
     .from(githubInstallations)
     .where(sql`${githubInstallations.repos}::jsonb @> ${needle}::jsonb`)
+    .orderBy(asc(githubInstallations.createdAt), asc(githubInstallations.id))
     .limit(1);
 
   return rows[0];
@@ -197,22 +198,21 @@ export async function handlePullRequestEvent(
     return;
   }
 
-  for (const task of matchingTasks) {
-    const updates: Partial<typeof tasks.$inferInsert> = {
-      updatedAt: new Date(),
-    };
+  const updates: Partial<typeof tasks.$inferInsert> = {
+    updatedAt: new Date(),
+  };
 
-    if (newStatus != null) {
-      updates.githubPrStatus = newStatus;
-    }
-
-    if (mergedToIntegration) {
-      updates.prMergedToIntegration = true;
-      updates.gatesLockedAt = new Date();
-    }
-
-    await db.update(tasks).set(updates).where(eq(tasks.id, task.id));
+  if (newStatus != null) {
+    updates.githubPrStatus = newStatus;
   }
+
+  if (mergedToIntegration) {
+    updates.prMergedToIntegration = true;
+    updates.gatesLockedAt = new Date();
+  }
+
+  const taskIds = matchingTasks.map((t) => t.id);
+  await db.update(tasks).set(updates).where(inArray(tasks.id, taskIds));
 
   if (mergedToIntegration) {
     await logEvent({

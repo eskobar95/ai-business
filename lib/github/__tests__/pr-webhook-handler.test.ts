@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 
 const verifySignatureMock = vi.hoisted(() => vi.fn(() => true));
 
@@ -48,7 +48,9 @@ function wireJsonbInstallSelectMock() {
   mockDb.select.mockReturnValue({
     from: vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
-        limit: selectLimitMock,
+        orderBy: vi.fn().mockReturnValue({
+          limit: selectLimitMock,
+        }),
       }),
     }),
   });
@@ -164,6 +166,21 @@ describe("handlePullRequestEvent", () => {
     mockDb.update.mockImplementation(() => ({
       set: setMock,
     }));
+  });
+
+  it("runs a single bulk update when multiple tasks match", async () => {
+    mockDb.query.githubInstallations.findFirst.mockResolvedValue(installationRow());
+    mockDb.query.businesses.findFirst.mockResolvedValue({ integrationBranch: "integration" });
+    mockDb.query.tasks.findMany.mockResolvedValue([
+      { id: "task-a", githubPrNumber: 42, githubRepoInstallationId: INSTALL_UUID },
+      { id: "task-b", githubPrNumber: 42, githubRepoInstallationId: INSTALL_UUID },
+    ] as never);
+
+    const { handlePullRequestEvent } = await import("@/lib/github/pr-webhook-handler");
+    await handlePullRequestEvent(basePayload({ action: "opened" }));
+
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ githubPrStatus: "open" }));
   });
 
   it("updates githubPrStatus to 'open' on action=opened", async () => {
@@ -341,6 +358,43 @@ describe("POST /api/github/webhook", () => {
     mockDb.insert.mockImplementation(() => ({
       values: () => Promise.resolve(undefined),
     }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    delete process.env.GITHUB_WEBHOOK_MAX_BODY_BYTES;
+  });
+
+  it("returns 413 when Content-Length exceeds GITHUB_WEBHOOK_MAX_BODY_BYTES", async () => {
+    vi.stubEnv("GITHUB_WEBHOOK_MAX_BODY_BYTES", "48");
+    const mod = await import("@/app/api/github/webhook/route");
+    const body: Record<string, unknown> = {};
+    const raw = JSON.stringify(body);
+    const headers = githubHeaders(body, "ping", "del-413-cl");
+    headers.set("Content-Length", "500");
+    const req = new NextRequest("http://localhost/api/github/webhook", {
+      method: "POST",
+      headers,
+      body: raw,
+    });
+    const res = await mod.POST(req);
+    expect(res.status).toBe(413);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 when buffered body exceeds limit", async () => {
+    vi.stubEnv("GITHUB_WEBHOOK_MAX_BODY_BYTES", "90");
+    const mod = await import("@/app/api/github/webhook/route");
+    const body = { pad: "z".repeat(400) };
+    const raw = JSON.stringify(body);
+    const req = new NextRequest("http://localhost/api/github/webhook", {
+      method: "POST",
+      headers: githubHeaders(body, "ping", "del-413-body"),
+      body: raw,
+    });
+    const res = await mod.POST(req);
+    expect(res.status).toBe(413);
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it("returns 401 on invalid HMAC signature", async () => {

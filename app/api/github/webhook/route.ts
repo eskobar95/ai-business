@@ -5,8 +5,12 @@ import {
   handlePullRequestEvent,
   parseGithubPullRequestWebhook,
 } from "@/lib/github/pr-webhook-handler";
+import {
+  bufferedGithubWebhookBodyExceedsLimit,
+  contentLengthHeaderExceedsGithubWebhookLimit,
+} from "@/lib/webhooks/github-webhook-limits";
 import { verifySignature } from "@/lib/webhooks/hmac";
-import { isPostgresUniqueViolation } from "@/lib/webhooks/pg-errors";
+import { tryInsertWebhookDelivery } from "@/lib/webhooks/try-insert-webhook-delivery";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -17,27 +21,12 @@ function githubWebhookSignatureHex(sigHeader: string): string {
   return prefixed?.[1] ?? t;
 }
 
-async function persistDelivery(opts: {
-  businessId: string | null;
-  githubEventType: string;
-  payload: Record<string, unknown>;
-  idempotencyKey: string;
-}): Promise<"inserted" | "duplicate"> {
-  const db = getDb();
-  try {
-    await db.insert(webhookDeliveries).values({
-      businessId: opts.businessId ?? null,
-      type: opts.githubEventType,
-      payload: opts.payload,
-      status: "delivered",
-      idempotencyKey: opts.idempotencyKey,
-      attempts: 1,
-    });
-    return "inserted";
-  } catch (err) {
-    if (isPostgresUniqueViolation(err)) return "duplicate";
-    throw err;
-  }
+function logGithubWebhookWarn(event: string, fields: Record<string, string>): void {
+  console.warn(JSON.stringify({ source: "api.github.webhook", level: "warn", event, ...fields }));
+}
+
+function payloadTooLarge(): NextResponse {
+  return NextResponse.json({ error: "Payload too large" }, { status: 413 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -58,7 +47,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const idempotencyKey = deliveryId.trim();
+
+  const cl = req.headers.get("content-length") ?? req.headers.get("Content-Length");
+  if (contentLengthHeaderExceedsGithubWebhookLimit(cl)) {
+    return payloadTooLarge();
+  }
+
   const rawBody = await req.text();
+  if (bufferedGithubWebhookBodyExceedsLimit(Buffer.byteLength(rawBody, "utf8"))) {
+    return payloadTooLarge();
+  }
 
   const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
   if (!secret) {
@@ -97,7 +95,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await handlePullRequestEvent(parsedPr.payload, { cachedInstallation: tenantInstallation });
     } else {
       pullRequestMalformed = true;
-      console.warn("[github webhook] Invalid pull_request JSON shape:", parsedPr.reason);
+      logGithubWebhookWarn("pull_request_payload_invalid", {
+        deliveryId: idempotencyKey,
+        eventType: githubEventType || "unknown",
+        reason: parsedPr.reason,
+      });
       body = {
         ...body,
         _validationError: parsedPr.reason,
@@ -105,11 +107,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const outcome = await persistDelivery({
+  const outcome = await tryInsertWebhookDelivery({
     businessId: tenantInstallation?.businessId ?? null,
-    githubEventType: githubEventType || "unknown",
+    type: githubEventType || "unknown",
     payload: body,
     idempotencyKey,
+    status: "delivered",
+    attempts: 1,
   });
   if (outcome === "duplicate") {
     return new NextResponse(null, { status: 202 });

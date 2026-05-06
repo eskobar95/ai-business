@@ -19,7 +19,8 @@ export default defineConfig({
       "runner/**/*.test.ts",
       "runner/**/__tests__/**/*.test.ts",
     ],
-    passWithNoTests: true,
+    // Fail loudly when suites collect zero assertions (broken discovery or accidental empty runs).
+    passWithNoTests: false,
   },
   resolve: {
     alias: {
