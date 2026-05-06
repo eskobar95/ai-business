@@ -6,6 +6,7 @@ import type { TaskRow, TaskStatus } from "@/lib/tasks/task-tree";
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/40",
+  todo: "bg-indigo-400",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",

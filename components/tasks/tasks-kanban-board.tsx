@@ -13,6 +13,7 @@ import type { TaskRow, TaskStatus } from "@/lib/tasks/task-tree";
 
 const COLUMNS: { id: TaskStatus; title: string }[] = [
   { id: "backlog", title: "Backlog" },
+  { id: "todo", title: "Todo" },
   { id: "in_progress", title: "In Progress" },
   { id: "blocked", title: "Blocked" },
   { id: "in_review", title: "In Review" },
@@ -21,6 +22,7 @@ const COLUMNS: { id: TaskStatus; title: string }[] = [
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/30",
+  todo: "bg-indigo-400 animate-pulse",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",
@@ -29,6 +31,7 @@ const STATUS_DOT: Record<TaskStatus, string> = {
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
+  todo: "Todo",
   in_progress: "In progress",
   blocked: "Blocked",
   in_review: "In review",
@@ -37,6 +40,7 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
 
 const COL_ACCENT: Record<TaskStatus, string> = {
   backlog: "text-muted-foreground/50",
+  todo: "text-indigo-400",
   in_progress: "text-primary",
   blocked: "text-destructive",
   in_review: "text-amber-400",

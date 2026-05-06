@@ -8,7 +8,7 @@ function row(
     id: string;
     parentTaskId: string | null;
     title: string;
-    status: "backlog" | "in_progress" | "blocked" | "in_review" | "done";
+    status: "backlog" | "todo" | "in_progress" | "blocked" | "in_review" | "done";
   }> = {},
 ) {
   const id = overrides.id ?? "t1";
@@ -29,6 +29,12 @@ function row(
     storyPoints: null as number | null,
     blockedReason: null as string | null,
     approvalId: null as string | null,
+    dependencyTaskId: null as string | null,
+    githubPrNumber: null as number | null,
+    githubRepoInstallationId: null as string | null,
+    githubPrStatus: null as string | null,
+    prMergedToIntegration: false,
+    gatesLockedAt: null as Date | null,
     createdAt: new Date(),
     updatedAt: new Date(),
     children: [] as TaskTreeNode[],

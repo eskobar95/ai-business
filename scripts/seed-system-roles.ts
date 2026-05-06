@@ -148,9 +148,6 @@ async function main() {
         .onConflictDoUpdate({
           target: systemRoles.slug,
           set: {
-            name: row.name,
-            description: row.description,
-            baseSystemPrompt: row.baseSystemPrompt,
             requiresGitWorkspace: row.requiresGitWorkspace,
             mayPromoteBacklogToTodo: row.mayPromoteBacklogToTodo,
             requiresPrMergeGate: row.requiresPrMergeGate,

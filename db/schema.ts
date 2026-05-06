@@ -788,8 +788,8 @@ export const tasks = pgTable(
       foreignColumns: [approvals.businessId, approvals.id],
     }).onDelete("set null"),
     foreignKey({
-      columns: [t.dependencyTaskId],
-      foreignColumns: [t.id],
+      columns: [t.businessId, t.dependencyTaskId],
+      foreignColumns: [t.businessId, t.id],
     }).onDelete("set null"),
     uniqueIndex("tasks_business_id_id_unique").on(t.businessId, t.id),
     index("tasks_business_id_idx").on(t.businessId),
