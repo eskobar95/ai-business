@@ -60,10 +60,29 @@ describe("updateBusinessBranchSettings", () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("accepts null values (clearing the field)", async () => {
+  it("rejects missing integration branch (null / empty)", async () => {
+    const { updateBusinessBranchSettings } = await import("@/lib/settings/branch-actions.js");
+    await expect(
+      updateBusinessBranchSettings("biz-1", {
+        integrationBranch: null,
+        releaseBranch: null,
+      }),
+    ).rejects.toThrow(/required/i);
+    expect(updateMock).not.toHaveBeenCalled();
+
+    await expect(
+      updateBusinessBranchSettings("biz-1", {
+        integrationBranch: "   ",
+        releaseBranch: null,
+      }),
+    ).rejects.toThrow(/required/i);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("allows clearing release branch with valid integration branch", async () => {
     const { updateBusinessBranchSettings } = await import("@/lib/settings/branch-actions.js");
     await updateBusinessBranchSettings("biz-1", {
-      integrationBranch: null,
+      integrationBranch: "staging",
       releaseBranch: null,
     });
     expect(updateMock).toHaveBeenCalledTimes(1);
@@ -98,5 +117,42 @@ describe("updateBusinessParallelSettings", () => {
       updateBusinessParallelSettings("biz-1", { maxParallelRuns: -1 }),
     ).rejects.toThrow();
     expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateBusinessCursorDefaults", () => {
+  beforeEach(() => {
+    updateMock.mockClear();
+  });
+
+  it("rejects invalid model id", async () => {
+    const { updateBusinessCursorDefaults } = await import("@/lib/settings/branch-actions.js");
+    await expect(
+      updateBusinessCursorDefaults("biz-1", {
+        defaultCursorModelId: "not-a-real-model",
+        defaultCursorThinkingEffort: null,
+      }),
+    ).rejects.toThrow(/invalid cursor model/i);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid thinking effort", async () => {
+    const { updateBusinessCursorDefaults } = await import("@/lib/settings/branch-actions.js");
+    await expect(
+      updateBusinessCursorDefaults("biz-1", {
+        defaultCursorModelId: null,
+        defaultCursorThinkingEffort: "ultra",
+      }),
+    ).rejects.toThrow(/invalid cursor thinking effort/i);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts null and allowlisted values", async () => {
+    const { updateBusinessCursorDefaults } = await import("@/lib/settings/branch-actions.js");
+    await updateBusinessCursorDefaults("biz-1", {
+      defaultCursorModelId: "auto",
+      defaultCursorThinkingEffort: "high",
+    });
+    expect(updateMock).toHaveBeenCalledTimes(1);
   });
 });

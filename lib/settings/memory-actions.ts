@@ -3,7 +3,7 @@
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { getDb } from "@/db/index";
 import { memory } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 
 export async function updateMemoryContent(memoryId: string, content: string): Promise<void> {
@@ -11,7 +11,7 @@ export async function updateMemoryContent(memoryId: string, content: string): Pr
   const db = getDb();
 
   const row = await db.query.memory.findFirst({
-    where: eq(memory.id, memoryId),
+    where: and(eq(memory.id, memoryId), isNull(memory.agentId)),
     columns: {
       id: true,
       businessId: true,

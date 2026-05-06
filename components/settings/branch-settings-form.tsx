@@ -1,23 +1,11 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { FieldHint } from "@/components/settings/field-hint";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { updateBusinessBranchSettings } from "@/lib/settings/branch-actions";
-
-function FieldHint({ text }: { text: string }) {
-  return (
-    <span
-      className="inline-flex cursor-help text-muted-foreground/40"
-      title={text}
-      aria-label={text}
-    >
-      <CircleHelp className="size-3.5" />
-    </span>
-  );
-}
 
 export function BranchSettingsForm({
   businessId,

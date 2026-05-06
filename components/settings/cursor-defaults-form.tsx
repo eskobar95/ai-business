@@ -1,9 +1,9 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { FieldHint } from "@/components/settings/field-hint";
 import {
   Select,
   SelectContent,
@@ -32,18 +32,6 @@ const EFFORT_OPTIONS: { value: string; label: string }[] = [
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
 ];
-
-function FieldHint({ text }: { text: string }) {
-  return (
-    <span
-      className="inline-flex cursor-help text-muted-foreground/40"
-      title={text}
-      aria-label={text}
-    >
-      <CircleHelp className="size-3.5" />
-    </span>
-  );
-}
 
 function toSelectModel(initial: string | null): string {
   if (initial == null) return PLATFORM_DEFAULT;

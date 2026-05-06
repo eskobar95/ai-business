@@ -6,23 +6,10 @@ import { businesses } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 
-/** Allowed characters for Git branch segments (letters, digits, -, _, ., /). */
-const BRANCH_NAME_PATTERN = /^[a-zA-Z0-9\-_.\\/]+$/;
-
-export function normalizeBranchValue(raw: string | null): string | null {
-  if (raw == null) return null;
-  const t = raw.trim();
-  return t.length === 0 ? null : t;
-}
-
-export function assertValidOptionalBranchField(fieldLabel: string, value: string | null): void {
-  if (value === null) return;
-  if (!BRANCH_NAME_PATTERN.test(value)) {
-    throw new Error(
-      `${fieldLabel} may only contain letters, numbers, hyphen, underscore, dot, and slash (no spaces).`,
-    );
-  }
-}
+import {
+  assertValidOptionalBranchField,
+  normalizeBranchValue,
+} from "@/lib/settings/branch-validation";
 
 const CURSOR_MODEL_IDS = [
   "auto",
@@ -43,6 +30,10 @@ export async function updateBusinessBranchSettings(
 
   const integrationBranch = normalizeBranchValue(input.integrationBranch);
   const releaseBranch = normalizeBranchValue(input.releaseBranch);
+
+  if (integrationBranch === null) {
+    throw new Error("Integration branch is required.");
+  }
 
   assertValidOptionalBranchField("Integration branch", integrationBranch);
   assertValidOptionalBranchField("Release branch", releaseBranch);

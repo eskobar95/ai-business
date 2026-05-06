@@ -1,9 +1,10 @@
 "use client";
 
-import { CircleHelp, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { FieldHint } from "@/components/settings/field-hint";
 import { TiptapEditor } from "@/components/ui/tiptap-editor";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { createBusinessMemorySection, updateMemoryContent } from "@/lib/settings/memory-actions";
@@ -15,18 +16,6 @@ export type MemorySectionInitial = {
   content: string;
   updatedAt: Date;
 };
-
-function FieldHint({ text }: { text: string }) {
-  return (
-    <span
-      className="inline-flex cursor-help text-muted-foreground/40"
-      title={text}
-      aria-label={text}
-    >
-      <CircleHelp className="size-3.5" />
-    </span>
-  );
-}
 
 function formatUpdatedAt(d: Date) {
   try {
@@ -50,27 +39,18 @@ function MemorySectionCard({
   updatedAt: Date;
   onScheduleSave: (id: string, html: string) => void;
 }) {
-  const [localUpdatedAt, setLocalUpdatedAt] = useState(updatedAt);
-
-  useEffect(() => {
-    setLocalUpdatedAt(updatedAt);
-  }, [updatedAt]);
-
   return (
     <div className="rounded-lg border border-border bg-white/[0.02] p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-tier-faint">
-          Updated {formatUpdatedAt(localUpdatedAt)}
+          Opdateret {formatUpdatedAt(updatedAt)}
         </span>
       </div>
       <TiptapEditor
         key={memoryId}
         initialContent={initialContent}
         className="min-h-[180px] rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-2"
-        onUpdate={(html) => {
-          setLocalUpdatedAt(new Date());
-          onScheduleSave(memoryId, html);
-        }}
+        onUpdate={(html) => onScheduleSave(memoryId, html)}
       />
     </div>
   );
@@ -105,30 +85,41 @@ export function MemoryEditor({
     };
   }, []);
 
-  const scheduleSave = useCallback((memoryId: string, html: string) => {
-    const timers = timersRef.current;
-    const prev = timers.get(memoryId);
-    if (prev) clearTimeout(prev);
-    const t = setTimeout(() => {
-      timers.delete(memoryId);
-      void (async () => {
-        try {
-          await updateMemoryContent(memoryId, html);
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Could not save memory.");
-        }
-      })();
-    }, AUTOSAVE_MS);
-    timers.set(memoryId, t);
+  const bumpSectionUpdatedAt = useCallback((memoryId: string) => {
+    const now = new Date();
+    setSections((prev) => sortSections(
+      prev.map((s) => (s.id === memoryId ? { ...s, updatedAt: now } : s)),
+    ));
   }, []);
+
+  const scheduleSave = useCallback(
+    (memoryId: string, html: string) => {
+      const timers = timersRef.current;
+      const prev = timers.get(memoryId);
+      if (prev) clearTimeout(prev);
+      const t = setTimeout(() => {
+        timers.delete(memoryId);
+        void (async () => {
+          try {
+            await updateMemoryContent(memoryId, html);
+            bumpSectionUpdatedAt(memoryId);
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not save memory.");
+          }
+        })();
+      }, AUTOSAVE_MS);
+      timers.set(memoryId, t);
+    },
+    [bumpSectionUpdatedAt],
+  );
 
   function onAddSection() {
     startAdd(async () => {
       try {
         const { id } = await createBusinessMemorySection(businessId, "<p></p>");
         const now = new Date();
-        setSections((prev) => [{ id, content: "<p></p>", updatedAt: now }, ...prev]);
-        toast.success("New section added.");
+        setSections((prev) => sortSections([{ id, content: "<p></p>", updatedAt: now }, ...prev]));
+        toast.success("Ny sektion tilføjet.");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Could not add section.");
       }
@@ -139,10 +130,10 @@ export function MemoryEditor({
     <div className="flex max-w-3xl flex-col gap-4">
       <p className="text-muted-tier-faint flex items-start gap-1.5 text-[12px] leading-relaxed">
         <span>
-          Business memory is injected into agent prompts when &apos;Include business context&apos; is enabled on
-          the system role.
+          Business memory injiceres i agent-prompts, når &apos;Include business context&apos; er slået til på
+          systemrollen.
         </span>
-        <FieldHint text="Business memory injiceres automatisk i agent-prompts hvor 'Include business context' er aktiveret på system role." />
+        <FieldHint text="Business memory injiceres automatisk i agent-prompts, når 'Include business context' er aktiveret på systemrollen." />
       </p>
 
       <div>
@@ -159,7 +150,7 @@ export function MemoryEditor({
 
       {sections.length === 0 ? (
         <p className="text-[13px] text-muted-foreground/50">
-          No business memory sections yet. Add one to get started.
+          Ingen business memory-sektioner endnu. Tilføj én for at komme i gang.
         </p>
       ) : (
         <ul className="flex flex-col gap-6">
