@@ -32,8 +32,13 @@ vi.mock("../promotion-auth", () => ({
   assertMayPromoteToTodo: vi.fn(async () => {}),
 }));
 
+vi.mock("../auto-trigger", () => ({
+  maybeAutoTriggerTask: vi.fn(async () => ({ triggered: false })),
+}));
+
 import { updateTaskDependency, updateTaskPrLink, updateTaskStatus } from "../actions";
 import { logEvent } from "@/lib/orchestration/events";
+import { maybeAutoTriggerTask } from "../auto-trigger";
 
 const baseTask = {
   id: "task-1",
@@ -150,6 +155,7 @@ describe("updateTaskStatus backlog to todo", () => {
       }),
     );
     expect(mockDb.update).toHaveBeenCalled();
+    expect(maybeAutoTriggerTask).toHaveBeenCalledWith("task-1");
   });
 });
 

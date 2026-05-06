@@ -6,7 +6,7 @@ import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { asc, eq } from "drizzle-orm";
 
-import { parseAndTriggerMentions } from "./mention-trigger";
+import { routeCommentToAgents } from "./mention-trigger";
 
 export type TaskLogAuthorType = "agent" | "human";
 
@@ -49,10 +49,10 @@ export async function appendTaskLog(
   if (authorType === "human") {
     const task = await db.query.tasks.findFirst({
       where: eq(tasks.id, taskId),
-      columns: { businessId: true },
+      columns: { businessId: true, agentId: true },
     });
     if (task) {
-      await parseAndTriggerMentions(taskId, trimmed, task.businessId);
+      await routeCommentToAgents(taskId, trimmed, task.businessId, task.agentId ?? null);
     }
   }
 

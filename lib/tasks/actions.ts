@@ -9,6 +9,7 @@ import { requireSessionUserId } from "@/lib/roster/session";
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
 import { assertMayPromoteToTodo } from "./promotion-auth";
+import { maybeAutoTriggerTask } from "./auto-trigger";
 
 import {
   buildDeleteOrderForSubtree,
@@ -124,6 +125,8 @@ async function promoteBacklogToTodoFromSession(taskId: string, preloadedTask?: T
     payload: { taskId },
     status: "succeeded",
   });
+
+  await maybeAutoTriggerTask(taskId);
 }
 
 export async function createTask(
@@ -248,6 +251,19 @@ export async function updateTaskStatus(
   }
 
   await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+
+  if (status === "done") {
+    const dependents = await db.query.tasks.findMany({
+      where: and(
+        eq(tasks.dependencyTaskId, taskId),
+        eq(tasks.status, "todo"),
+      ),
+      columns: { id: true },
+    });
+    for (const dep of dependents) {
+      await maybeAutoTriggerTask(dep.id);
+    }
+  }
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

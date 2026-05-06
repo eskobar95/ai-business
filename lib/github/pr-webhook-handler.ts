@@ -1,6 +1,7 @@
 import { getDb } from "@/db/index";
 import { businesses, githubInstallations, tasks } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
+import { maybeAutoTriggerTask } from "@/lib/tasks/auto-trigger";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 type DbClient = ReturnType<typeof getDb>;
@@ -208,13 +209,15 @@ export async function handlePullRequestEvent(
 
   if (mergedToIntegration) {
     updates.prMergedToIntegration = true;
-    updates.gatesLockedAt = new Date();
   }
 
   const taskIds = matchingTasks.map((t) => t.id);
   await db.update(tasks).set(updates).where(inArray(tasks.id, taskIds));
 
   if (mergedToIntegration) {
+    for (const task of matchingTasks) {
+      await maybeAutoTriggerTask(task.id);
+    }
     await logEvent({
       type: "github.pr.merged",
       businessId,

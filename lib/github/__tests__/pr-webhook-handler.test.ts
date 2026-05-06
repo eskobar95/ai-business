@@ -40,6 +40,12 @@ vi.mock("@/db/index", () => ({
   getDb: () => mockDb,
 }));
 
+const maybeAutoTriggerTaskMock = vi.hoisted(() => vi.fn(async () => ({ triggered: false })));
+
+vi.mock("@/lib/tasks/auto-trigger", () => ({
+  maybeAutoTriggerTask: maybeAutoTriggerTaskMock,
+}));
+
 const selectLimitMock = vi.hoisted(() => vi.fn());
 
 function wireJsonbInstallSelectMock() {
@@ -150,6 +156,7 @@ describe("handlePullRequestEvent", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    maybeAutoTriggerTaskMock.mockClear();
     verifySignatureMock.mockReturnValue(true);
     wireJsonbInstallSelectMock();
     mockDb.query.webhookDeliveries.findFirst.mockResolvedValue(null);
@@ -168,7 +175,32 @@ describe("handlePullRequestEvent", () => {
     }));
   });
 
-  it("runs a single bulk update when multiple tasks match", async () => {
+  it("merged to integration runs one bulk update and maybeAutoTriggerTask per matching task", async () => {
+    mockDb.query.githubInstallations.findFirst.mockResolvedValue(installationRow());
+    mockDb.query.businesses.findFirst.mockResolvedValue({ integrationBranch: "integration" });
+    mockDb.query.tasks.findMany.mockResolvedValue([
+      { id: "task-a", githubPrNumber: 42, githubRepoInstallationId: INSTALL_UUID },
+      { id: "task-b", githubPrNumber: 42, githubRepoInstallationId: INSTALL_UUID },
+    ] as never);
+
+    const { handlePullRequestEvent } = await import("@/lib/github/pr-webhook-handler");
+    await handlePullRequestEvent(
+      basePayload({ action: "closed", merged: true, baseRef: "integration" }),
+    );
+
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        githubPrStatus: "merged",
+        prMergedToIntegration: true,
+      }),
+    );
+    expect(maybeAutoTriggerTaskMock).toHaveBeenCalledTimes(2);
+    expect(maybeAutoTriggerTaskMock).toHaveBeenCalledWith("task-a");
+    expect(maybeAutoTriggerTaskMock).toHaveBeenCalledWith("task-b");
+  });
+
+  it("runs a single bulk update when multiple tasks match on opened", async () => {
     mockDb.query.githubInstallations.findFirst.mockResolvedValue(installationRow());
     mockDb.query.businesses.findFirst.mockResolvedValue({ integrationBranch: "integration" });
     mockDb.query.tasks.findMany.mockResolvedValue([
@@ -181,6 +213,7 @@ describe("handlePullRequestEvent", () => {
 
     expect(mockDb.update).toHaveBeenCalledTimes(1);
     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ githubPrStatus: "open" }));
+    expect(maybeAutoTriggerTaskMock).not.toHaveBeenCalled();
   });
 
   it("updates githubPrStatus to 'open' on action=opened", async () => {
@@ -230,9 +263,9 @@ describe("handlePullRequestEvent", () => {
       expect.objectContaining({
         githubPrStatus: "merged",
         prMergedToIntegration: true,
-        gatesLockedAt: expect.any(Date),
       }),
     );
+    expect(maybeAutoTriggerTaskMock).toHaveBeenCalledWith("task-1");
     expect(logEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "github.pr.merged",
@@ -312,6 +345,7 @@ describe("handlePullRequestEvent", () => {
         payload: expect.objectContaining({ prNumber: 42 }),
       }),
     );
+    expect(maybeAutoTriggerTaskMock).toHaveBeenCalledWith("task-merge");
   });
 
   it("does NOT log event when merged to non-integration branch", async () => {
