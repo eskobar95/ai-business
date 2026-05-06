@@ -100,6 +100,25 @@ export const systemRoles = pgTable(
     baseSystemPrompt: text("base_system_prompt").notNull(),
     /** When true, runners include business-scope memory markdown in prompts. */
     includeBusinessContext: boolean("include_business_context").notNull().default(false),
+    /**
+     * Runner kører git-preflight (fetch, checkout integrationBranch, worktree) for denne rolle.
+     * Typisk true for developer/engineer/lead. False for analyst, ux_designer.
+     */
+    requiresGitWorkspace: boolean("requires_git_workspace").notNull().default(false),
+    /**
+     * Agent med denne rolle må kalde promoteTaskToTodo Server Action.
+     * Kombineres med teamets leadAgentId check.
+     */
+    mayPromoteBacklogToTodo: boolean("may_promote_backlog_to_todo").notNull().default(false),
+    /**
+     * Gate-check for tasks assignet til denne rolle inkluderer prMergedToIntegration.
+     * Typisk true for developer; false for analyst/researcher.
+     */
+    requiresPrMergeGate: boolean("requires_pr_merge_gate").notNull().default(false),
+    /**
+     * Agenten er lead-type og må modtage lead_heartbeat events i runner.
+     */
+    runsHeartbeat: boolean("runs_heartbeat").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("system_roles_slug_unique").on(t.slug)],
