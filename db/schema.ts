@@ -704,6 +704,21 @@ export const tasks = pgTable(
     storyPoints: integer("story_points"),
     blockedReason: text("blocked_reason"),
     approvalId: uuid("approval_id"),
+    /** FK til anden task (same business); denne task må ikke auto-starte før dependency er done. */
+    dependencyTaskId: uuid("dependency_task_id"),
+    /** GitHub PR-nummer linket til denne task (valideret mod githubRepoInstallationId). */
+    githubPrNumber: integer("github_pr_number"),
+    /** FK til github_installations; identificerer repo PR tilhører. */
+    githubRepoInstallationId: uuid("github_repo_installation_id").references(
+      () => githubInstallations.id,
+      { onDelete: "set null" },
+    ),
+    /** Synkroniseret fra GitHub webhook: 'draft'|'open'|'approved'|'merged'|'closed'. */
+    githubPrStatus: text("github_pr_status"),
+    /** True når GitHub bekræfter PR er merged til business.integrationBranch. */
+    prMergedToIntegration: boolean("pr_merged_to_integration").notNull().default(false),
+    /** Tidspunkt hvor alle gates sidst var opfyldt (audit). */
+    gatesLockedAt: timestamp("gates_locked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -724,11 +739,17 @@ export const tasks = pgTable(
       columns: [t.businessId, t.approvalId],
       foreignColumns: [approvals.businessId, approvals.id],
     }).onDelete("set null"),
+    foreignKey({
+      columns: [t.dependencyTaskId],
+      foreignColumns: [t.id],
+    }).onDelete("set null"),
     uniqueIndex("tasks_business_id_id_unique").on(t.businessId, t.id),
     index("tasks_business_id_idx").on(t.businessId),
     index("tasks_agent_id_idx").on(t.agentId),
     index("tasks_team_id_idx").on(t.teamId),
     index("tasks_parent_task_id_idx").on(t.parentTaskId),
+    index("tasks_dependency_task_id_idx").on(t.dependencyTaskId),
+    index("tasks_github_repo_installation_id_idx").on(t.githubRepoInstallationId),
     index("tasks_status_idx").on(t.status),
     index("tasks_project_id_idx").on(t.projectId),
     index("tasks_sprint_id_idx").on(t.sprintId),
