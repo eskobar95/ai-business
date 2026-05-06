@@ -3,8 +3,8 @@
 import { verifyCursorApiKey } from "@/lib/cursor/verify-api-key";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { getDb } from "@/db/index";
-import { businesses, userBusinesses, userSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { businesses, memory, userBusinesses, userSettings } from "@/db/schema";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { encryptCredential } from "@/lib/mcp/encryption";
 
@@ -145,6 +145,12 @@ export type SettingsBusinessRow = {
   githubRepoUrl: string | null;
   description: string | null;
   websiteUrl: string | null; // placeholder — not in DB yet
+  integrationBranch: string | null;
+  releaseBranch: string | null;
+  maxParallelRuns: number | null;
+  defaultCursorModelId: string | null;
+  defaultCursorThinkingEffort: string | null;
+  memorySections: Array<{ id: string; content: string; updatedAt: Date }>;
 };
 
 /**
@@ -169,14 +175,52 @@ export async function getSettingsPageState(): Promise<{
       localPath: businesses.localPath,
       githubRepoUrl: businesses.githubRepoUrl,
       description: businesses.description,
+      integrationBranch: businesses.integrationBranch,
+      releaseBranch: businesses.releaseBranch,
+      maxParallelRuns: businesses.maxParallelRuns,
+      defaultCursorModelId: businesses.defaultCursorModelId,
+      defaultCursorThinkingEffort: businesses.defaultCursorThinkingEffort,
     })
     .from(userBusinesses)
     .innerJoin(businesses, eq(userBusinesses.businessId, businesses.id))
     .where(eq(userBusinesses.userId, userId));
 
+  const businessIds = rows.map((r) => r.id);
+
+  const memoryRows =
+    businessIds.length > 0
+      ? await db
+          .select({
+            businessId: memory.businessId,
+            id: memory.id,
+            content: memory.content,
+            updatedAt: memory.updatedAt,
+          })
+          .from(memory)
+          .where(
+            and(
+              eq(memory.scope, "business"),
+              isNull(memory.agentId),
+              inArray(memory.businessId, businessIds),
+            ),
+          )
+          .orderBy(desc(memory.updatedAt))
+      : [];
+
+  const memoryByBusiness = new Map<
+    string,
+    Array<{ id: string; content: string; updatedAt: Date }>
+  >();
+  for (const m of memoryRows) {
+    const list = memoryByBusiness.get(m.businessId) ?? [];
+    list.push({ id: m.id, content: m.content, updatedAt: m.updatedAt });
+    memoryByBusiness.set(m.businessId, list);
+  }
+
   const businessRows: SettingsBusinessRow[] = rows.map((r) => ({
     ...r,
     websiteUrl: null, // not yet in DB schema
+    memorySections: memoryByBusiness.get(r.id) ?? [],
   }));
 
   return { hasCursorApiKey, businesses: businessRows };
