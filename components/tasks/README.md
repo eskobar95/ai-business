@@ -15,5 +15,6 @@ Client and server components for **Phase 2 Task 3.2**: task board, creation form
 | `task-detail-sidebar.tsx` | Properties column: toolbar copies, rows, labels, project, PR link, relations, dates. |
 | `task-detail-activity.tsx` | Activity feed (+ demo rows), highlighted comment HTML, composer `CommentBox`. |
 | `task-detail-priority-icon.tsx` | Priority SVG icons for task detail dropdowns. |
+| `task-pr-badge.tsx` | Small lifecycle badge for `tasks.github_pr_status` (`draft` / `open` / `approved` / `merged` / `closed`). |
 
 Imports `appendTaskLog` / `createTask` / `updateTaskStatus` only from client components where required; list pages stay as Server Components.
