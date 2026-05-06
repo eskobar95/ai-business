@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { TemplatePreview } from "@/lib/templates/get-template-preview";
@@ -28,6 +28,13 @@ export function TemplatePreviewModal({
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (open) {
+      setPhase("idle");
+      setMessage(null);
+    }
+  }, [open]);
 
   if (!open) return null;
 

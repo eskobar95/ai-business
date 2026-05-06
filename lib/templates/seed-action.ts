@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { getDb } from "@/db/index";
-import { agents, businesses, communicationEdges, gateKinds, teams, userBusinesses } from "@/db/schema";
+import { agents, businesses, communicationEdges, gateKinds, teams } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { verifyAndParseBundle } from "@/lib/templates/bundle-verify";

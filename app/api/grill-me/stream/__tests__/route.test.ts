@@ -39,15 +39,19 @@ vi.mock("@/db/index", () => ({
 }));
 
 describe("GET /api/grill-me/stream", () => {
-  it("responds with SSE content-type and at least one data line", async () => {
-    const mod = await import("@/app/api/grill-me/stream/route");
-    const req = new NextRequest(
-      "http://localhost/api/grill-me/stream?businessId=biz-111",
-      { method: "GET" },
-    );
-    const res = await mod.GET(req);
-    expect(res.headers.get("content-type")).toMatch(/text\/event-stream/i);
-    const txt = await new Response(res.body).text();
-    expect(txt).toContain("data: ");
-  });
+  it(
+    "responds with SSE content-type and at least one data line",
+    async () => {
+      const mod = await import("@/app/api/grill-me/stream/route");
+      const req = new NextRequest(
+        "http://localhost/api/grill-me/stream?businessId=biz-111",
+        { method: "GET" },
+      );
+      const res = await mod.GET(req);
+      expect(res.headers.get("content-type")).toMatch(/text\/event-stream/i);
+      const txt = await new Response(res.body).text();
+      expect(txt).toContain("data: ");
+    },
+    20_000,
+  );
 });

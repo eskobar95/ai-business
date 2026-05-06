@@ -1,3 +1,12 @@
+-- Forward: template_seeded + routines (Stream B). Rollback (manual, dev/staging only):
+--   DROP INDEX IF EXISTS "routines_is_active_next_run_at_idx";
+--   DROP INDEX IF EXISTS "routines_agent_id_idx";
+--   DROP INDEX IF EXISTS "routines_business_id_idx";
+--   ALTER TABLE "routines" DROP CONSTRAINT IF EXISTS "routines_business_id_agent_id_agents_business_id_id_fk";
+--   ALTER TABLE "routines" DROP CONSTRAINT IF EXISTS "routines_business_id_businesses_id_fk";
+--   DROP TABLE IF EXISTS "routines";
+--   ALTER TABLE "businesses" DROP COLUMN IF EXISTS "template_seeded";
+
 CREATE TABLE "routines" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"business_id" uuid NOT NULL,
