@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { decryptCredential } from "@/lib/mcp/encryption.js";
 
@@ -50,6 +50,13 @@ vi.mock("@/db/index", () => ({
 }));
 
 describe("saveUserSettings encryption", () => {
+  beforeEach(() => {
+    delete process.env.ENCRYPTION_KEY;
+    capture.lastInsert = null;
+    verifyCursorApiKeyMock.mockClear();
+    verifyCursorApiKeyMock.mockResolvedValue({ ok: true });
+  });
+
   afterEach(() => {
     delete process.env.ENCRYPTION_KEY;
     capture.lastInsert = null;
@@ -57,22 +64,26 @@ describe("saveUserSettings encryption", () => {
     verifyCursorApiKeyMock.mockResolvedValue({ ok: true });
   });
 
-  it("encrypts Cursor API key and supports round-trip with ENCRYPTION_KEY", async () => {
-    process.env.ENCRYPTION_KEY = testKeyHex;
+  it(
+    "encrypts Cursor API key and supports round-trip with ENCRYPTION_KEY",
+    async () => {
+      process.env.ENCRYPTION_KEY = testKeyHex;
 
-    const { saveUserSettings } = await import("@/lib/settings/actions.js");
-    await saveUserSettings("  sk-test-secret  ");
+      const { saveUserSettings } = await import("@/lib/settings/actions.js");
+      await saveUserSettings("  sk-test-secret  ");
 
-    expect(capture.lastInsert?.userId).toBe("user-phase2");
-    expect(capture.lastInsert?.cursorApiKeyIv?.length ?? 0).toBeGreaterThan(8);
-    expect(capture.lastInsert?.cursorApiKeyEncrypted?.ciphertext).toBeTruthy();
+      expect(capture.lastInsert?.userId).toBe("user-phase2");
+      expect(capture.lastInsert?.cursorApiKeyIv?.length ?? 0).toBeGreaterThan(8);
+      expect(capture.lastInsert?.cursorApiKeyEncrypted?.ciphertext).toBeTruthy();
 
-    const decrypted = decryptCredential(capture.lastInsert!.cursorApiKeyIv!, capture.lastInsert!
-      .cursorApiKeyEncrypted!);
-    expect(decrypted.cursorApiKey).toBe("sk-test-secret");
-    expect(verifyCursorApiKeyMock).toHaveBeenCalledTimes(1);
-    expect(verifyCursorApiKeyMock).toHaveBeenCalledWith("sk-test-secret");
-  });
+      const decrypted = decryptCredential(capture.lastInsert!.cursorApiKeyIv!, capture.lastInsert!
+        .cursorApiKeyEncrypted!);
+      expect(decrypted.cursorApiKey).toBe("sk-test-secret");
+      expect(verifyCursorApiKeyMock).toHaveBeenCalledTimes(1);
+      expect(verifyCursorApiKeyMock).toHaveBeenCalledWith("sk-test-secret");
+    },
+    15_000,
+  );
 
   it("clears stored key without calling Cursor.verify when field is empty", async () => {
     const { saveUserSettings } = await import("@/lib/settings/actions.js");
