@@ -25,6 +25,20 @@ function unbumpBusinessConcurrent(businessId: string): void {
   else businessInFlight.set(businessId, next);
 }
 
+/** Fire-and-forget async work with guaranteed cleanup; surfaces unexpected rejections to the runner log. */
+function runClaimedEvent(eventRowId: string, reconcile: () => void, work: () => Promise<void>): void {
+  void (async () => {
+    try {
+      await work();
+    } finally {
+      reconcile();
+    }
+  })().catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    runnerLogError("runner/poll", `Unhandled error for event ${eventRowId}:`, msg);
+  });
+}
+
 export async function pollOnce(): Promise<void> {
   const pending = await listPendingOrchestrationEvents(8);
   /** Dedupe DB reads when several pending rows share the same business in one tick. */
@@ -63,6 +77,8 @@ export async function pollOnce(): Promise<void> {
 
     if (resolvedAgentId && agentInFlight.has(resolvedAgentId)) continue;
 
+    // In-process throttle only: enforced before claim, so another tick could pass the check in a race.
+    // Good enough for MVP; cross-process or strict limits need DB-level coordination.
     const maxParallel = businessId != null ? await getCachedMaxParallel(businessId) : null;
     if (maxParallel !== null && maxParallel > 0 && businessId) {
       const current = businessInFlight.get(businessId) ?? 0;
@@ -82,37 +98,30 @@ export async function pollOnce(): Promise<void> {
       if (businessId) unbumpBusinessConcurrent(businessId);
     };
 
-    void (async () => {
-      try {
-        const skipApiKey = full.type === "lead_heartbeat";
-        const apiKey = skipApiKey ? null : await resolveRunnerCursorApiKey(full.businessId);
-        if (!skipApiKey && !apiKey) {
-          await finishOrchestrationEvent(full.id, {
-            status: "failed",
-            payload: {
-              ...payload,
-              runnerError:
-                "No Cursor API key: save a validated key under Settings/onboarding for a business member linked to this business, or set CURSOR_API_KEY for this runner process.",
-            },
-          });
-          return;
-        }
-
-        await dispatchOrchestrationEvent(
-          full.id,
-          {
-            businessId: full.businessId,
-            type: full.type,
-            payload,
+    runClaimedEvent(row.id, reconcileInFlightSets, async () => {
+      const skipApiKey = full.type === "lead_heartbeat";
+      const apiKey = skipApiKey ? null : await resolveRunnerCursorApiKey(full.businessId);
+      if (!skipApiKey && !apiKey) {
+        await finishOrchestrationEvent(full.id, {
+          status: "failed",
+          payload: {
+            ...payload,
+            runnerError:
+              "No Cursor API key: save a validated key under Settings/onboarding for a business member linked to this business, or set CURSOR_API_KEY for this runner process.",
           },
-          apiKey?.trim() ?? "",
-        );
-      } finally {
-        reconcileInFlightSets();
+        });
+        return;
       }
-    })().catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      runnerLogError("runner/poll", `Unhandled error for event ${row.id}:`, msg);
+
+      await dispatchOrchestrationEvent(
+        full.id,
+        {
+          businessId: full.businessId,
+          type: full.type,
+          payload,
+        },
+        apiKey?.trim() ?? "",
+      );
     });
   }
 }

@@ -30,7 +30,10 @@ import {
   assertValidAgentAvatarUrl,
   maxAvatarUploadFileBytes,
 } from "@/lib/agents/avatar-validation";
-import { parseHeartbeatPromotionCapFromForm } from "@/lib/agents/cursor-agent-config";
+import {
+  HEARTBEAT_PROMOTION_CAP_DEFAULT,
+  parseHeartbeatPromotionCapFromForm,
+} from "@/lib/agents/cursor-agent-config";
 import { AGENT_PLATFORM_ICONS } from "@/components/agents/agent-platform-icons";
 import { AgentRosterAvatar } from "@/components/agents/agent-roster-avatar";
 import { cn } from "@/lib/utils";
@@ -90,7 +93,7 @@ export function AgentSettingsForm({
     String(agent.heartbeatPromotionCap ?? 3),
   );
 
-  // Beholder adapter som UI-only for nu (Hermes/Multi er post-MVP)
+  // Adapter is UI-only for now (Hermes/Multi post-MVP).
   const [adapter, setAdapter] = useState<AgentAdapterId>("cursor_cli");
 
   // Permissions (UI-only stubs)
@@ -111,14 +114,27 @@ export function AgentSettingsForm({
     setSystemRoleId(agent.systemRoleId ?? "");
     setCursorModelId(agent.cursorModelId ?? "auto");
     setCursorThinkingEffort(agent.cursorThinkingEffort ?? "auto");
-    setHeartbeatPromotionCap(String(agent.heartbeatPromotionCap ?? 3));
+    const savedRoleRunsHeartbeat =
+      platformSystemRoles.find((r) => r.id === (agent.systemRoleId ?? ""))?.runsHeartbeat === true;
+    setHeartbeatPromotionCap(
+      savedRoleRunsHeartbeat
+        ? String(agent.heartbeatPromotionCap ?? HEARTBEAT_PROMOTION_CAP_DEFAULT)
+        : String(HEARTBEAT_PROMOTION_CAP_DEFAULT),
+    );
   }, [
     agent.id,
     agent.systemRoleId,
     agent.cursorModelId,
     agent.cursorThinkingEffort,
     agent.heartbeatPromotionCap,
+    platformSystemRoles,
   ]);
+
+  useEffect(() => {
+    if (!showHeartbeatCap) {
+      setHeartbeatPromotionCap(String(HEARTBEAT_PROMOTION_CAP_DEFAULT));
+    }
+  }, [showHeartbeatCap]);
 
   useEffect(() => {
     setSelectedIcon(agent.iconKey && isAgentPlatformIconId(agent.iconKey) ? agent.iconKey : null);
@@ -164,11 +180,9 @@ export function AgentSettingsForm({
           systemRoleId: systemRoleId || null,
           cursorModelId,
           cursorThinkingEffort,
-          ...(showHeartbeatCap
-            ? {
-                heartbeatPromotionCap: parseHeartbeatPromotionCapFromForm(heartbeatPromotionCap),
-              }
-            : {}),
+          heartbeatPromotionCap: showHeartbeatCap
+            ? parseHeartbeatPromotionCapFromForm(heartbeatPromotionCap)
+            : HEARTBEAT_PROMOTION_CAP_DEFAULT,
           ...(nextAvatar !== undefined ? { avatarUrl: nextAvatar } : {}),
           iconKey: selectedIcon,
         });
