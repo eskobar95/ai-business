@@ -129,8 +129,8 @@ function BlockedBySection({
       </div>
       {selected ? (
         <p className={cn("text-[11px]", dependencyDepBadgeClass(selected.status))}>
-          {selected.status === "done" ? "✓" : selected.status === "in_progress" ? "⧗" : "○"} Dependency:{" "}
-          {selected.status.replace("_", " ")}
+          Dependency status:{" "}
+          <span className="font-medium capitalize">{selected.status.replaceAll("_", " ")}</span>
         </p>
       ) : null}
     </div>
@@ -647,6 +647,7 @@ export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
 
         <SidebarSection label="Pull request">
           <TaskPrLinkForm
+            key={`${taskId}-${githubPrNumber ?? ""}-${githubRepoInstallationId ?? ""}-${githubPrStatus ?? ""}`}
             taskId={taskId}
             initialGithubPrNumber={githubPrNumber}
             initialGithubRepoInstallationId={githubRepoInstallationId}

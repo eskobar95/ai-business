@@ -24,7 +24,16 @@ vi.mock("@/db/index", () => ({
   getDb: () => mockDb,
 }));
 
-import { updateTaskDependency, updateTaskPrLink } from "../actions";
+vi.mock("@/lib/orchestration/events", () => ({
+  logEvent: vi.fn(async () => "event-1"),
+}));
+
+vi.mock("../promotion-auth", () => ({
+  assertMayPromoteToTodo: vi.fn(async () => {}),
+}));
+
+import { updateTaskDependency, updateTaskPrLink, updateTaskStatus } from "../actions";
+import { logEvent } from "@/lib/orchestration/events";
 
 const baseTask = {
   id: "task-1",
@@ -84,6 +93,47 @@ describe("updateTaskDependency", () => {
     await expect(updateTaskDependency("task-1", "dep-1")).rejects.toThrow(
       "must belong to the same business",
     );
+  });
+
+  it("rejects circular dependency chain", async () => {
+    mockDb.query.tasks.findFirst
+      .mockResolvedValueOnce(baseTask)
+      .mockResolvedValueOnce({ businessId: "b1" })
+      .mockResolvedValueOnce({ dependencyTaskId: "task-1" });
+
+    await expect(updateTaskDependency("task-1", "dep-b")).rejects.toThrow(
+      "Circular task dependencies are not allowed",
+    );
+  });
+});
+
+describe("updateTaskStatus backlog to todo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDb.update.mockReturnValue({
+      set: () => ({
+        where: vi.fn(async () => {}),
+      }),
+    });
+  });
+
+  it("delegates to promotion path and logs orchestration event", async () => {
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      ...baseTask,
+      approvalId: "approval-x",
+    });
+
+    await updateTaskStatus("task-1", "todo");
+
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "task.promoted_to_todo",
+        businessId: "b1",
+        payload: { taskId: "task-1" },
+        status: "succeeded",
+      }),
+    );
+    expect(mockDb.update).toHaveBeenCalled();
   });
 });
 

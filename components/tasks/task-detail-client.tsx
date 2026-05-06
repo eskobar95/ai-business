@@ -26,7 +26,6 @@ import {
   updateTaskPriority,
   updateTaskAssignee,
   updateTaskTeam,
-  promoteTaskToTodo,
 } from "@/lib/tasks/actions";
 import type { Priority } from "@/lib/tasks/task-detail-display";
 import type { TaskRow, TaskStatus } from "@/lib/tasks/task-tree";
@@ -192,11 +191,7 @@ export function TaskDetailClient({
     setStatus(next);
     statusTransition(async () => {
       try {
-        if (next === "todo" && task.status === "backlog") {
-          await promoteTaskToTodo(task.id);
-        } else {
-          await updateTaskStatus(task.id, next);
-        }
+        await updateTaskStatus(task.id, next);
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update status");

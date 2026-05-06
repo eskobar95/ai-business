@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 
 import type { TaskStatus } from "@/lib/tasks/task-tree";
-import { updateTaskStatus, promoteTaskToTodo } from "@/lib/tasks/actions";
+import { updateTaskStatus } from "@/lib/tasks/actions";
 
 const OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: "backlog", label: "Backlog" },
@@ -49,11 +49,7 @@ export function TaskStatusSelect({
           const next = e.target.value as TaskStatus;
           startTransition(async () => {
             try {
-              if (next === "todo" && initialStatus === "backlog") {
-                await promoteTaskToTodo(taskId);
-              } else {
-                await updateTaskStatus(taskId, next);
-              }
+              await updateTaskStatus(taskId, next);
               toast.success("Status updated.");
               router.refresh();
             } catch (err) {

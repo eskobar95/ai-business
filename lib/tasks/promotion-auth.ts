@@ -3,18 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/index";
 import { agents, tasks, teams } from "@/db/schema";
 
-/** Slugs commonly granted promotion-friendly system roles (documentation / future policy hooks). */
-export const PROMOTION_ALLOWLIST_SLUGS = [
-  "engineering_manager",
-  "product_owner",
-  "lead",
-] as const;
-
 /**
  * Throws if the caller may not promote `taskId` from backlog → todo.
  *
+ * **Policy (authoritative):** `system_roles.may_promote_backlog_to_todo` on the agent's role, or
+ * the agent is `teams.lead_agent_id` for the task’s team. There is no separate slug allowlist in code —
+ * seed/configuration should set flags on roles (e.g. engineering_manager, product_owner, lead).
+ *
  * Human callers: must already have passed `assertUserBusinessAccess` in the action.
- * Agent callers: require `systemRole.mayPromoteBacklogToTodo` or team lead for the task's team.
+ * Agent callers: evaluated against DB flags as above.
  */
 export async function assertMayPromoteToTodo(
   taskId: string,

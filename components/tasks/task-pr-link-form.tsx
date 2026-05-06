@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateTaskPrLink } from "@/lib/tasks/actions";
@@ -27,6 +27,11 @@ export function TaskPrLinkForm({
   );
   const [installationId, setInstallationId] = useState(initialGithubRepoInstallationId ?? "");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setPrNumber(initialGithubPrNumber != null ? String(initialGithubPrNumber) : "");
+    setInstallationId(initialGithubRepoInstallationId ?? "");
+  }, [taskId, initialGithubPrNumber, initialGithubRepoInstallationId]);
 
   function submit() {
     const trimmed = prNumber.trim();

@@ -66,6 +66,59 @@ async function assertApprovalInBusiness(businessId: string, approvalId: string):
   }
 }
 
+const MAX_DEPENDENCY_CHAIN_STEPS = 64;
+
+/** Walking `newDependencyId` → its `dependency_task_id`; if we reach `taskId`, linking would create a cycle. */
+async function assertDependencyWouldNotCreateCycle(
+  taskId: string,
+  newDependencyId: string,
+): Promise<void> {
+  const db = getDb();
+  let cursor: string | null = newDependencyId;
+  for (let step = 0; step < MAX_DEPENDENCY_CHAIN_STEPS && cursor; step++) {
+    if (cursor === taskId) {
+      throw new Error("Circular task dependencies are not allowed");
+    }
+    const row: { dependencyTaskId: string | null } | undefined = await db.query.tasks.findFirst({
+      where: eq(tasks.id, cursor),
+      columns: { dependencyTaskId: true },
+    });
+    cursor = row?.dependencyTaskId ?? null;
+  }
+}
+
+/**
+ * Backlog → todo with RBAC, audit log, and fields aligned with `updateTaskStatus` (clears blocked + approval link).
+ */
+async function promoteBacklogToTodoFromSession(taskId: string): Promise<void> {
+  const userId = await requireSessionUserId();
+  const db = getDb();
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+  });
+  if (!task) throw new Error("Task not found");
+  await assertUserBusinessAccess(userId, task.businessId);
+  if (task.status !== "backlog") throw new Error("Task must be in backlog to promote");
+  await assertMayPromoteToTodo(taskId, userId, "human");
+
+  await db
+    .update(tasks)
+    .set({
+      status: "todo",
+      blockedReason: null,
+      approvalId: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId));
+
+  await logEvent({
+    type: "task.promoted_to_todo",
+    businessId: task.businessId,
+    payload: { taskId },
+    status: "succeeded",
+  });
+}
+
 export async function createTask(
   businessId: string,
   input: {
@@ -148,6 +201,12 @@ export async function updateTaskStatus(
   opts?: { blockedReason?: string | null; approvalId?: string | null },
 ): Promise<void> {
   const task = await assertTaskInBusinessForUser(taskId);
+
+  if (task.status === "backlog" && status === "todo") {
+    await promoteBacklogToTodoFromSession(taskId);
+    return;
+  }
+
   const db = getDb();
 
   const updates: Partial<typeof tasks.$inferInsert> = {
@@ -242,25 +301,7 @@ export async function updateTaskTeam(taskId: string, teamId: string | null): Pro
 }
 
 export async function promoteTaskToTodo(taskId: string): Promise<void> {
-  const userId = await requireSessionUserId();
-  const db = getDb();
-  const task = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!task) throw new Error("Task not found");
-  await assertUserBusinessAccess(userId, task.businessId);
-  if (task.status !== "backlog") throw new Error("Task must be in backlog to promote");
-  await assertMayPromoteToTodo(taskId, userId, "human");
-  await db
-    .update(tasks)
-    .set({ status: "todo", updatedAt: new Date() })
-    .where(eq(tasks.id, taskId));
-  await logEvent({
-    type: "task.promoted_to_todo",
-    businessId: task.businessId,
-    payload: { taskId },
-    status: "succeeded",
-  });
+  await promoteBacklogToTodoFromSession(taskId);
 }
 
 export async function updateTaskDependency(taskId: string, dependencyTaskId: string | null): Promise<void> {
@@ -284,6 +325,9 @@ export async function updateTaskDependency(taskId: string, dependencyTaskId: str
   if (dep.businessId !== task.businessId) {
     throw new Error("Dependency task must belong to the same business");
   }
+
+  await assertDependencyWouldNotCreateCycle(taskId, dependencyTaskId);
+
   await db
     .update(tasks)
     .set({ dependencyTaskId, updatedAt: new Date() })

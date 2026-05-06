@@ -6,8 +6,8 @@ Server Actions and helpers for business-scoped **tasks**, **task logs**, and **@
 
 | File | Role |
 |------|------|
-| `actions.ts` | `"use server"` — CRUD, status updates (including approval link), subtree delete, tree listing by business, list by agent, `getTaskById`, promote backlog→todo (`promoteTaskToTodo`), dependency + GitHub PR link updates, installation listing |
-| `promotion-auth.ts` | `assertMayPromoteToTodo` — human vs agent RBAC for backlog→todo promotion |
+| `actions.ts` | `"use server"` — CRUD, `getTaskById`, subtree delete, tree listing, `updateTaskStatus` (backlog→`todo` → promotion + `logEvent`), `promoteTaskToTodo`, dependency updates (**cycle check**), PR link updates, installations list |
+| `promotion-auth.ts` | `assertMayPromoteToTodo` — human vs agent RBAC; policy is DB flags on `system_roles`, not slug allowlists in code |
 | `log-actions.ts` | `"use server"` — append log lines and fetch logs; human-authored logs trigger mention parsing |
 | `mention-trigger.ts` | Scans log text for `@Name`, matches agents in the same business (case-insensitive), emits `orchestration_events` with `type: mention_trigger` (`status: pending`) |
 | `task-tree.ts` | Types: `TaskRow`, `TaskStatus`, `TaskTreeNode`. Pure helpers: subtree collection and safe delete ordering (children before parents) |
