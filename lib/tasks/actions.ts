@@ -85,18 +85,25 @@ async function assertDependencyWouldNotCreateCycle(
     });
     cursor = row?.dependencyTaskId ?? null;
   }
+  if (cursor !== null) {
+    throw new Error("Task dependency chain exceeds maximum depth");
+  }
 }
 
 /**
  * Backlog → todo with RBAC, audit log, and fields aligned with `updateTaskStatus` (clears blocked + approval link).
+ * Pass `preloadedTask` when the row was just loaded (e.g. from `updateTaskStatus`) to avoid an extra query.
  */
-async function promoteBacklogToTodoFromSession(taskId: string): Promise<void> {
+async function promoteBacklogToTodoFromSession(taskId: string, preloadedTask?: TaskRow): Promise<void> {
   const userId = await requireSessionUserId();
   const db = getDb();
-  const task = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
+  const task =
+    preloadedTask ??
+    (await db.query.tasks.findFirst({
+      where: eq(tasks.id, taskId),
+    }));
   if (!task) throw new Error("Task not found");
+  if (task.id !== taskId) throw new Error("Task not found");
   await assertUserBusinessAccess(userId, task.businessId);
   if (task.status !== "backlog") throw new Error("Task must be in backlog to promote");
   await assertMayPromoteToTodo(taskId, userId, "human");
@@ -157,6 +164,16 @@ export async function createTask(
     .returning({ id: tasks.id });
 
   if (!row) throw new Error("Failed to create task");
+
+  if (status === "todo") {
+    await logEvent({
+      type: "task.promoted_to_todo",
+      businessId,
+      payload: { taskId: row.id, source: "create_task" },
+      status: "succeeded",
+    });
+  }
+
   return row;
 }
 
@@ -203,7 +220,7 @@ export async function updateTaskStatus(
   const task = await assertTaskInBusinessForUser(taskId);
 
   if (task.status === "backlog" && status === "todo") {
-    await promoteBacklogToTodoFromSession(taskId);
+    await promoteBacklogToTodoFromSession(taskId, task);
     return;
   }
 

@@ -31,7 +31,12 @@ vi.mock("@/db/index", () => ({
   getDb: () => mockDb,
 }));
 
+vi.mock("@/lib/orchestration/events", () => ({
+  logEvent: vi.fn(async () => "event-1"),
+}));
+
 import { createTask, getTasksByBusiness, getTasksByAgent, updateTaskStatus } from "../actions";
+import { logEvent } from "@/lib/orchestration/events";
 
 describe("tasks actions (mocked db)", () => {
   beforeEach(() => {
@@ -52,6 +57,27 @@ describe("tasks actions (mocked db)", () => {
 
     const { id } = await createTask("b1", { title: "Hello" });
     expect(id).toBe("t-new");
+    expect(logEvent).not.toHaveBeenCalled();
+  });
+
+  it("createTask logs promoted_to_todo when status is todo", async () => {
+    mockDb.insert.mockReturnValue({
+      values: (vals: Record<string, unknown>) => ({
+        returning: vi.fn(async () => {
+          expect(vals.status).toBe("todo");
+          return [{ id: "t-todo" }];
+        }),
+      }),
+    });
+
+    const { id } = await createTask("b1", { title: "Hello", status: "todo" });
+    expect(id).toBe("t-todo");
+    expect(logEvent).toHaveBeenCalledWith({
+      type: "task.promoted_to_todo",
+      businessId: "b1",
+      payload: { taskId: "t-todo", source: "create_task" },
+      status: "succeeded",
+    });
   });
 
   it("updateTaskStatus links approval when in_review", async () => {

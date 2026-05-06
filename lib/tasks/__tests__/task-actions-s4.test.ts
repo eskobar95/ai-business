@@ -105,6 +105,20 @@ describe("updateTaskDependency", () => {
       "Circular task dependencies are not allowed",
     );
   });
+
+  it("rejects dependency chains deeper than the maximum walk length", async () => {
+    mockDb.query.tasks.findFirst.mockResolvedValueOnce(baseTask);
+    mockDb.query.tasks.findFirst.mockResolvedValueOnce({ businessId: "b1" });
+    for (let i = 0; i < 64; i++) {
+      mockDb.query.tasks.findFirst.mockResolvedValueOnce({
+        dependencyTaskId: `dep-${i + 1}`,
+      });
+    }
+
+    await expect(updateTaskDependency("task-1", "dep-0")).rejects.toThrow(
+      "Task dependency chain exceeds maximum depth",
+    );
+  });
 });
 
 describe("updateTaskStatus backlog to todo", () => {
@@ -124,6 +138,8 @@ describe("updateTaskStatus backlog to todo", () => {
     });
 
     await updateTaskStatus("task-1", "todo");
+
+    expect(mockDb.query.tasks.findFirst).toHaveBeenCalledTimes(1);
 
     expect(logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
