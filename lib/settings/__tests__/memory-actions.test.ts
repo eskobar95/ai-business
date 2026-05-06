@@ -88,6 +88,18 @@ describe("updateMemoryContent", () => {
       }),
     );
   });
+
+  it("rejects oversized content", async () => {
+    memoryFindFirst.mockResolvedValue({
+      id: "mem-1",
+      businessId: "biz-1",
+      version: 2,
+    });
+    const big = "x".repeat(500_001);
+    const { updateMemoryContent } = await import("@/lib/settings/memory-actions.js");
+    await expect(updateMemoryContent("mem-1", big)).rejects.toThrow(/too large/i);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("createBusinessMemorySection", () => {
@@ -103,5 +115,12 @@ describe("createBusinessMemorySection", () => {
     const out = await createBusinessMemorySection("biz-1");
     expect(out).toEqual({ id: "new-memory-id" });
     expect(insertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects oversized initial content", async () => {
+    const { createBusinessMemorySection } = await import("@/lib/settings/memory-actions.js");
+    const big = "x".repeat(500_001);
+    await expect(createBusinessMemorySection("biz-1", big)).rejects.toThrow(/too large/i);
+    expect(insertMock).not.toHaveBeenCalled();
   });
 });

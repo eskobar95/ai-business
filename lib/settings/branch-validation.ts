@@ -2,8 +2,8 @@
  * Pure branch-name validation for workspace settings (no "use server" — import from Server Actions only).
  */
 
-/** Allowed characters for Git branch segments (letters, digits, -, _, ., /). */
-const BRANCH_NAME_PATTERN = /^[a-zA-Z0-9\-_.\\/]+$/;
+/** Allowed characters for Git branch segments (letters, digits, -, _, ., /) — no backslash. */
+const BRANCH_NAME_PATTERN = /^[a-zA-Z0-9._/-]+$/;
 
 export function normalizeBranchValue(raw: string | null): string | null {
   if (raw == null) return null;

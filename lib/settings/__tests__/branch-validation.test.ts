@@ -19,5 +19,6 @@ describe("branch-validation", () => {
 
   it("assertValidOptionalBranchField rejects invalid", () => {
     expect(() => assertValidOptionalBranchField("X", "bad name")).toThrow(/space/i);
+    expect(() => assertValidOptionalBranchField("X", "a\\b")).toThrow(/only contain/i);
   });
 });

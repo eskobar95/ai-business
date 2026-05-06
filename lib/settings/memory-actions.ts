@@ -6,6 +6,17 @@ import { memory } from "@/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 
+/** Reasonable upper bound for autosaved rich-text HTML (abuse / paste guard). */
+const MAX_MEMORY_CONTENT_CHARS = 500_000;
+
+function assertMemoryContentSize(content: string): void {
+  if (content.length > MAX_MEMORY_CONTENT_CHARS) {
+    throw new Error(
+      `Memory content is too large (max ${MAX_MEMORY_CONTENT_CHARS} characters).`,
+    );
+  }
+}
+
 export async function updateMemoryContent(memoryId: string, content: string): Promise<void> {
   const userId = await requireSessionUserId();
   const db = getDb();
@@ -29,6 +40,8 @@ export async function updateMemoryContent(memoryId: string, content: string): Pr
 
   await assertUserBusinessAccess(userId, row.businessId);
 
+  assertMemoryContentSize(content);
+
   const [updated] = await db
     .update(memory)
     .set({
@@ -36,7 +49,14 @@ export async function updateMemoryContent(memoryId: string, content: string): Pr
       updatedAt: new Date(),
       version: row.version + 1,
     })
-    .where(and(eq(memory.id, memoryId), eq(memory.version, row.version)))
+    .where(
+      and(
+        eq(memory.id, memoryId),
+        eq(memory.version, row.version),
+        isNull(memory.agentId),
+        eq(memory.scope, "business"),
+      ),
+    )
     .returning({ id: memory.id });
 
   if (!updated) {
@@ -57,6 +77,7 @@ export async function createBusinessMemorySection(
   await assertUserBusinessAccess(userId, businessId);
 
   const body = initialContent?.length ? initialContent : "<p></p>";
+  assertMemoryContentSize(body);
 
   const db = getDb();
   const [inserted] = await db

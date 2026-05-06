@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { FieldHint } from "@/components/settings/field-hint";
@@ -73,9 +73,20 @@ export function MemoryEditor({
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [addPending, startAdd] = useTransition();
 
+  /** Stable across parent re-renders that only change array identity, not server rows. */
+  const serverSectionsSignature = useMemo(
+    () =>
+      [...initialSections]
+        .map((s) => `${s.id}:${s.updatedAt.getTime()}`)
+        .sort()
+        .join("|"),
+    [initialSections],
+  );
+
   useEffect(() => {
     setSections(sortSections(initialSections));
-  }, [initialSections]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gate on serverSectionsSignature + businessId to avoid clobbering editors when `initialSections` is a new array reference with identical data
+  }, [businessId, serverSectionsSignature]);
 
   useEffect(() => {
     const timers = timersRef.current;
