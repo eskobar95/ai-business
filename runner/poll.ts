@@ -1,4 +1,5 @@
 import { dispatchOrchestrationEvent } from "./dispatch";
+import { runnerLogError } from "./logger";
 import {
   finishOrchestrationEvent,
   getBusinessMaxParallelRuns,
@@ -111,8 +112,7 @@ export async function pollOnce(): Promise<void> {
       }
     })().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
-      // eslint-disable-next-line no-console -- runner process has no shared logger yet
-      console.error(`[runner/poll] Unhandled error for event ${row.id}:`, msg);
+      runnerLogError("runner/poll", `Unhandled error for event ${row.id}:`, msg);
     });
   }
 }
