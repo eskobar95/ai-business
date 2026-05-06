@@ -47,6 +47,8 @@ test.describe("communication graph", () => {
     const businessId = businessIdMatch![1];
 
     await page.goto(`/dashboard/communication?businessId=${businessId}`);
+    // Edge form + list live in "List" view; default is Graph (canvas v2).
+    await page.getByTestId("communication-view-list").click();
     await expect(page.getByTestId("communication-edge-form")).toBeVisible({
       timeout: 60_000,
     });
