@@ -43,6 +43,16 @@ export const businesses = pgTable(
     derivedFromTemplateVersion: text("derived_from_template_version"),
     /** True after enterprise template seed completes (dashboard one-click or CLI). */
     templateSeeded: boolean("template_seeded").notNull().default(false),
+    /** Branch som agenter syncer til og PR'er merges til for at åbne gates. */
+    integrationBranch: text("integration_branch"),
+    /** Release-branch — kun menneskegodkendt merge; ingen auto-gate. */
+    releaseBranch: text("release_branch"),
+    /** Max antal parallelle agent-runs for dette workspace. null = ubegrænset. */
+    maxParallelRuns: integer("max_parallel_runs"),
+    /** Default Cursor model for agenter med cursorModelId='inherit'. null = platform default. */
+    defaultCursorModelId: text("default_cursor_model_id"),
+    /** Default Cursor thinking effort for agenter med cursorThinkingEffort='inherit'. */
+    defaultCursorThinkingEffort: text("default_cursor_thinking_effort"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("businesses_created_at_idx").on(t.createdAt)],
