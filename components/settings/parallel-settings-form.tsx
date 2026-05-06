@@ -60,16 +60,16 @@ export function ParallelSettingsForm({
               className="size-4 rounded border-border bg-white/[0.04]"
             />
             <label htmlFor="parallelCapEnabled" className="label-upper cursor-pointer">
-              Aktiver parallel-loft
+              Enable parallel run cap
             </label>
-            <FieldHint text="Gælder for hele dit workspace. Slået fra = ubegrænset (kun per-agent mutex aktiv)." />
+            <FieldHint text="Workspace-wide. When off, parallel runs are unlimited (per-agent mutex still applies)." />
           </div>
         </div>
 
         {enabled ? (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="maxParallelRuns" className="label-upper">
-              Max parallelle agent-runs
+              Max parallel agent runs
             </label>
             <input
               id="maxParallelRuns"

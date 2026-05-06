@@ -55,7 +55,7 @@ export function BranchSettingsForm({
             <label htmlFor="integrationBranch" className="label-upper">
               Integration branch
             </label>
-            <FieldHint text="Den branch agenter syncer fra og PR'er skal merges til for at gates åbnes." />
+            <FieldHint text="Branch agents sync from here; PRs merge here to satisfy automation gates." />
           </div>
           <input
             id="integrationBranch"
@@ -74,7 +74,7 @@ export function BranchSettingsForm({
             <label htmlFor="releaseBranch" className="label-upper">
               Release branch
             </label>
-            <FieldHint text="Kun du godkender merge hertil. Ingen automation rører release." />
+            <FieldHint text="Only humans merge here. Automation does not touch the release branch." />
           </div>
           <input
             id="releaseBranch"

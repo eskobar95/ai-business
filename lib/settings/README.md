@@ -3,6 +3,7 @@
 | File | Role |
 |------|------|
 | `actions.ts` | Account Cursor API key (`verifyAndSaveCursorApiKey` / `saveUserSettings` — same path: empty clears; non-empty validated with `Cursor.me` then encrypted) + business fields + `getSettingsPageState`. |
+| `cursor-workspace-defaults.ts` | Shared Cursor model / thinking-effort options for workspace defaults (UI + `branch-actions` validation). |
 | `branch-validation.ts` | Pure helpers: `normalizeBranchValue`, `assertValidOptionalBranchField` (imported by `branch-actions`, not `"use server"`). |
 | `branch-actions.ts` | `updateBusinessBranchSettings`, `updateBusinessParallelSettings`, `updateBusinessCursorDefaults`. |
 | `memory-actions.ts` | `updateMemoryContent`, `createBusinessMemorySection` for business-scope memory rows. |

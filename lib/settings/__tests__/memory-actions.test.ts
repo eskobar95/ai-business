@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const memoryFindFirst = vi.fn();
-const updateChain = {
-  set: vi.fn(() => ({
-    where: vi.fn(() => Promise.resolve()),
-  })),
-};
-const updateMock = vi.fn(() => updateChain);
+
+const updateReturningMock = vi.fn(() => Promise.resolve([{ id: "mem-1" }]));
+const updateWhereMock = vi.fn(() => ({
+  returning: updateReturningMock,
+}));
+const updateSetMock = vi.fn(() => ({
+  where: updateWhereMock,
+}));
+const updateMock = vi.fn(() => ({
+  set: updateSetMock,
+}));
+
 const returningMock = vi.fn(() => Promise.resolve([{ id: "new-memory-id" }]));
 const insertValuesMock = vi.fn(() => ({
   returning: returningMock,
@@ -39,11 +45,13 @@ describe("updateMemoryContent", () => {
   beforeEach(() => {
     memoryFindFirst.mockReset();
     updateMock.mockClear();
-    updateChain.set.mockClear();
-    updateChain.set.mockReturnValue({ where: vi.fn(() => Promise.resolve()) });
+    updateSetMock.mockClear();
+    updateWhereMock.mockClear();
+    updateReturningMock.mockReset();
+    updateReturningMock.mockResolvedValue([{ id: "mem-1" }]);
   });
 
-  it("throws when memory row is missing or filtered out (e.g. agent-bound)", async () => {
+  it("throws when memory row is missing or not business-scoped without agent binding", async () => {
     memoryFindFirst.mockResolvedValue(undefined);
     const { updateMemoryContent } = await import("@/lib/settings/memory-actions.js");
     await expect(updateMemoryContent("mem-1", "<p>x</p>")).rejects.toThrow(
@@ -52,29 +60,28 @@ describe("updateMemoryContent", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("throws for non-business scope", async () => {
+  it("throws when optimistic lock fails (concurrent update)", async () => {
     memoryFindFirst.mockResolvedValue({
       id: "mem-1",
       businessId: "biz-1",
-      scope: "agent",
-      version: 1,
+      version: 2,
     });
+    updateReturningMock.mockResolvedValueOnce([]);
     const { updateMemoryContent } = await import("@/lib/settings/memory-actions.js");
-    await expect(updateMemoryContent("mem-1", "<p>x</p>")).rejects.toThrow(/only business memory/i);
-    expect(updateMock).not.toHaveBeenCalled();
+    await expect(updateMemoryContent("mem-1", "<p>hi</p>")).rejects.toThrow(/updated elsewhere/i);
+    expect(updateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("updates when business-scope row exists", async () => {
+  it("updates when business-scope row exists and version matches", async () => {
     memoryFindFirst.mockResolvedValue({
       id: "mem-1",
       businessId: "biz-1",
-      scope: "business",
       version: 2,
     });
     const { updateMemoryContent } = await import("@/lib/settings/memory-actions.js");
     await updateMemoryContent("mem-1", "<p>hi</p>");
     expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateChain.set).toHaveBeenCalledWith(
+    expect(updateSetMock).toHaveBeenCalledWith(
       expect.objectContaining({
         content: "<p>hi</p>",
         version: 3,

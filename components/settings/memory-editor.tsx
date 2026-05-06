@@ -43,7 +43,7 @@ function MemorySectionCard({
     <div className="rounded-lg border border-border bg-white/[0.02] p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-tier-faint">
-          Opdateret {formatUpdatedAt(updatedAt)}
+          Updated {formatUpdatedAt(updatedAt)}
         </span>
       </div>
       <TiptapEditor
@@ -87,9 +87,11 @@ export function MemoryEditor({
 
   const bumpSectionUpdatedAt = useCallback((memoryId: string) => {
     const now = new Date();
-    setSections((prev) => sortSections(
-      prev.map((s) => (s.id === memoryId ? { ...s, updatedAt: now } : s)),
-    ));
+    setSections((prev) =>
+      sortSections(
+        prev.map((s) => (s.id === memoryId ? { ...s, updatedAt: now } : s)),
+      ),
+    );
   }, []);
 
   const scheduleSave = useCallback(
@@ -119,7 +121,7 @@ export function MemoryEditor({
         const { id } = await createBusinessMemorySection(businessId, "<p></p>");
         const now = new Date();
         setSections((prev) => sortSections([{ id, content: "<p></p>", updatedAt: now }, ...prev]));
-        toast.success("Ny sektion tilføjet.");
+        toast.success("Section added.");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Could not add section.");
       }
@@ -130,10 +132,10 @@ export function MemoryEditor({
     <div className="flex max-w-3xl flex-col gap-4">
       <p className="text-muted-tier-faint flex items-start gap-1.5 text-[12px] leading-relaxed">
         <span>
-          Business memory injiceres i agent-prompts, når &apos;Include business context&apos; er slået til på
-          systemrollen.
+          Business memory is injected into agent prompts when &apos;Include business context&apos; is enabled on
+          the system role.
         </span>
-        <FieldHint text="Business memory injiceres automatisk i agent-prompts, når 'Include business context' er aktiveret på systemrollen." />
+        <FieldHint text="Shown in agent runs when the system role has business context injection turned on." />
       </p>
 
       <div>
@@ -144,13 +146,13 @@ export function MemoryEditor({
           loading={addPending}
           onClick={onAddSection}
         >
-          Ny sektion
+          New section
         </PrimaryButton>
       </div>
 
       {sections.length === 0 ? (
         <p className="text-[13px] text-muted-foreground/50">
-          Ingen business memory-sektioner endnu. Tilføj én for at komme i gang.
+          No business memory sections yet. Add one to get started.
         </p>
       ) : (
         <ul className="flex flex-col gap-6">

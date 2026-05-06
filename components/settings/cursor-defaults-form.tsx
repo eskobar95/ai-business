@@ -13,25 +13,16 @@ import {
 } from "@/components/ui/select";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { updateBusinessCursorDefaults } from "@/lib/settings/branch-actions";
+import {
+  WORKSPACE_DEFAULT_CURSOR_SELECT_SENTINEL,
+  workspaceCursorModelSelectItems,
+  workspaceCursorThinkingEffortSelectItems,
+} from "@/lib/settings/cursor-workspace-defaults";
 
-const PLATFORM_DEFAULT = "__platform_default__";
+const PLATFORM_DEFAULT = WORKSPACE_DEFAULT_CURSOR_SELECT_SENTINEL;
 
-const MODEL_OPTIONS: { value: string; label: string }[] = [
-  { value: PLATFORM_DEFAULT, label: "Platform default (composer-2)" },
-  { value: "auto", label: "Auto (Cursor vælger)" },
-  { value: "claude-sonnet-4", label: "Claude Sonnet 4" },
-  { value: "claude-opus-4", label: "Claude Opus 4" },
-  { value: "gpt-4.1", label: "GPT-4.1" },
-  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-];
-
-const EFFORT_OPTIONS: { value: string; label: string }[] = [
-  { value: PLATFORM_DEFAULT, label: "Platform default" },
-  { value: "auto", label: "Auto" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-];
+const MODEL_OPTIONS = workspaceCursorModelSelectItems();
+const EFFORT_OPTIONS = workspaceCursorThinkingEffortSelectItems();
 
 function toSelectModel(initial: string | null): string {
   if (initial == null) return PLATFORM_DEFAULT;
@@ -84,7 +75,7 @@ export function CursorDefaultsForm({
             <label htmlFor="cursor-model" className="label-upper">
               Default model
             </label>
-            <FieldHint text="`auto` = Cursor vælger. Agenter med 'inherit' arver dette valg." />
+            <FieldHint text="`auto` lets Cursor choose. Agents set to inherit use this workspace default." />
           </div>
           <Select value={model} onValueChange={setModel} disabled={pending}>
             <SelectTrigger
@@ -108,7 +99,7 @@ export function CursorDefaultsForm({
             <label htmlFor="cursor-thinking" className="label-upper">
               Default thinking effort
             </label>
-            <FieldHint text="Påvirker svardybde og token-forbrug." />
+            <FieldHint text="Affects answer depth and token usage for this workspace default." />
           </div>
           <Select value={effort} onValueChange={setEffort} disabled={pending}>
             <SelectTrigger

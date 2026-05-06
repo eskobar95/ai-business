@@ -10,16 +10,10 @@ import {
   assertValidOptionalBranchField,
   normalizeBranchValue,
 } from "@/lib/settings/branch-validation";
-
-const CURSOR_MODEL_IDS = [
-  "auto",
-  "claude-sonnet-4",
-  "claude-opus-4",
-  "gpt-4.1",
-  "gemini-2.5-pro",
-] as const;
-
-const CURSOR_THINKING_EFFORTS = ["auto", "low", "medium", "high"] as const;
+import {
+  isAllowedWorkspaceCursorModelId,
+  isAllowedWorkspaceThinkingEffort,
+} from "@/lib/settings/cursor-workspace-defaults";
 
 export async function updateBusinessBranchSettings(
   businessId: string,
@@ -78,17 +72,13 @@ export async function updateBusinessCursorDefaults(
 
   if (
     defaultCursorModelId !== null &&
-    !CURSOR_MODEL_IDS.includes(
-      defaultCursorModelId as (typeof CURSOR_MODEL_IDS)[number],
-    )
+    !isAllowedWorkspaceCursorModelId(defaultCursorModelId)
   ) {
     throw new Error("Invalid Cursor model selection.");
   }
   if (
     defaultCursorThinkingEffort !== null &&
-    !CURSOR_THINKING_EFFORTS.includes(
-      defaultCursorThinkingEffort as (typeof CURSOR_THINKING_EFFORTS)[number],
-    )
+    !isAllowedWorkspaceThinkingEffort(defaultCursorThinkingEffort)
   ) {
     throw new Error("Invalid Cursor thinking effort selection.");
   }

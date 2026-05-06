@@ -11,11 +11,14 @@ export async function updateMemoryContent(memoryId: string, content: string): Pr
   const db = getDb();
 
   const row = await db.query.memory.findFirst({
-    where: and(eq(memory.id, memoryId), isNull(memory.agentId)),
+    where: and(
+      eq(memory.id, memoryId),
+      isNull(memory.agentId),
+      eq(memory.scope, "business"),
+    ),
     columns: {
       id: true,
       businessId: true,
-      scope: true,
       version: true,
     },
   });
@@ -23,22 +26,29 @@ export async function updateMemoryContent(memoryId: string, content: string): Pr
   if (!row) {
     throw new Error("Memory section not found.");
   }
-  if (row.scope !== "business") {
-    throw new Error("Only business memory can be edited here.");
-  }
 
   await assertUserBusinessAccess(userId, row.businessId);
 
-  await db
+  const [updated] = await db
     .update(memory)
     .set({
       content,
       updatedAt: new Date(),
       version: row.version + 1,
     })
-    .where(eq(memory.id, memoryId));
+    .where(and(eq(memory.id, memoryId), eq(memory.version, row.version)))
+    .returning({ id: memory.id });
+
+  if (!updated) {
+    throw new Error(
+      "This memory section was updated elsewhere. Refresh the page and try again.",
+    );
+  }
 }
 
+/**
+ * @param initialContent - Optional HTML body for Tiptap. Falsy or empty string uses `<p></p>`.
+ */
 export async function createBusinessMemorySection(
   businessId: string,
   initialContent?: string,
