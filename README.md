@@ -34,6 +34,10 @@ Database scripts:
 | `npm run db:studio`   | Open Drizzle Studio                     |
 
 
+### Vitest og git worktrees (Windows)
+
+Vitest 3 kan i nogle opsætninger registrere **zero tests**, hvis `cwd` er en *sekundær* git worktree med egen mappe. CI kører typisk fra ét repo‑rod og er upåvirket. Lokalt: kør fra primær checkout eller brug `npx vitest run -r <sti-til-worktree>`.
+
 ## CI (GitHub Actions)
 
 Workflow: `[.github/workflows/e2e.yml](.github/workflows/e2e.yml)` (job **quality**: Vitest + ESLint + `next build`; job **playwright**: migrate + Playwright).

@@ -1,9 +1,11 @@
 import { getDb } from "@/db/index";
 import { businesses, githubInstallations, tasks } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 type DbClient = ReturnType<typeof getDb>;
+
+export type GithubInstallationRow = typeof githubInstallations.$inferSelect;
 
 /** Minimal subset of GitHub pull_request payloads we persist. */
 export interface GitHubPRPayload {
@@ -20,6 +22,90 @@ export interface GitHubPRPayload {
   installation?: { id: number };
 }
 
+export type ParsedGithubPullRequest =
+  | { ok: true; payload: GitHubPRPayload }
+  | { ok: false; reason: string };
+
+/** Validates minimal fields required by `handlePullRequestEvent`. */
+export function parseGithubPullRequestWebhook(body: Record<string, unknown>): ParsedGithubPullRequest {
+  if (typeof body.action !== "string" || body.action.trim() === "") {
+    return { ok: false, reason: "invalid_action" };
+  }
+
+  if (typeof body.number !== "number" || !Number.isFinite(body.number)) {
+    return { ok: false, reason: "invalid_pr_number" };
+  }
+
+  const pr = body.pull_request;
+  if (!pr || typeof pr !== "object") {
+    return { ok: false, reason: "missing_pull_request" };
+  }
+
+  const prRecord = pr as Record<string, unknown>;
+
+  if (typeof prRecord.merged !== "boolean") {
+    return { ok: false, reason: "invalid_pr_merged" };
+  }
+
+  const base = prRecord.base;
+  const head = prRecord.head;
+  if (
+    !base ||
+    typeof base !== "object" ||
+    typeof (base as { ref?: unknown }).ref !== "string" ||
+    (base as { ref: string }).ref.trim() === ""
+  ) {
+    return { ok: false, reason: "invalid_pr_base" };
+  }
+  if (
+    !head ||
+    typeof head !== "object" ||
+    typeof (head as { ref?: unknown }).ref !== "string" ||
+    (head as { ref: string }).ref.trim() === ""
+  ) {
+    return { ok: false, reason: "invalid_pr_head" };
+  }
+
+  const repo = body.repository;
+  if (!repo || typeof repo !== "object") {
+    return { ok: false, reason: "missing_repository" };
+  }
+
+  const fullNameRaw = (repo as { full_name?: unknown }).full_name;
+  if (typeof fullNameRaw !== "string" || fullNameRaw.trim() === "") {
+    return { ok: false, reason: "invalid_repository_full_name" };
+  }
+
+  let installation: { id: number } | undefined;
+  const rawInst = body.installation;
+  if (
+    rawInst !== null &&
+    rawInst !== undefined &&
+    typeof rawInst === "object" &&
+    typeof (rawInst as { id?: unknown }).id === "number"
+  ) {
+    const id = (rawInst as { id: number }).id;
+    if (Number.isFinite(id)) {
+      installation = { id };
+    }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      action: body.action.trim(),
+      number: body.number,
+      pull_request: {
+        merged: prRecord.merged,
+        base: { ref: (base as { ref: string }).ref.trim() },
+        head: { ref: (head as { ref: string }).ref.trim() },
+      },
+      repository: { full_name: fullNameRaw.trim() },
+      ...(installation ? { installation } : {}),
+    },
+  };
+}
+
 /** Maps GitHub pull_request webhook actions to persisted `tasks.github_pr_status`. */
 export function mapActionToGithubPrStatus(action: string, merged: boolean): string | null {
   if (action === "opened" || action === "reopened" || action === "ready_for_review") {
@@ -33,7 +119,7 @@ export function mapActionToGithubPrStatus(action: string, merged: boolean): stri
 
 /**
  * Resolves platform install row via GitHub `installation.id` (preferred),
- * falling back to `repository.full_name` contained in persisted `repos` string[].
+ * falling back to `repository.full_name` contained in persisted `repos` jsonb (`string[]`).
  */
 export async function findGithubInstallationRow(
   db: DbClient,
@@ -41,7 +127,7 @@ export async function findGithubInstallationRow(
     repository?: { full_name?: string };
     installation?: { id?: number };
   },
-): Promise<(typeof githubInstallations.$inferSelect) | undefined> {
+): Promise<GithubInstallationRow | undefined> {
   if (payload.installation?.id != null) {
     const byInstall = await db.query.githubInstallations.findFirst({
       where: eq(githubInstallations.installationId, String(payload.installation.id)),
@@ -52,8 +138,14 @@ export async function findGithubInstallationRow(
   const fullName = payload.repository?.full_name?.trim();
   if (!fullName) return undefined;
 
-  const rows = await db.query.githubInstallations.findMany({});
-  return rows.find((r) => Array.isArray(r.repos) && r.repos.includes(fullName));
+  const needle = JSON.stringify([fullName]);
+  const rows = await db
+    .select()
+    .from(githubInstallations)
+    .where(sql`${githubInstallations.repos}::jsonb @> ${needle}::jsonb`)
+    .limit(1);
+
+  return rows[0];
 }
 
 function isMergedToIntegrationGate(
@@ -69,20 +161,14 @@ function isMergedToIntegrationGate(
   );
 }
 
-export async function handlePullRequestEvent(payload: GitHubPRPayload): Promise<void> {
-  if (
-    typeof payload.number !== "number" ||
-    !payload.pull_request?.base?.ref ||
-    !payload.pull_request?.head?.ref ||
-    typeof payload.pull_request.merged !== "boolean" ||
-    !payload.repository?.full_name
-  ) {
-    return;
-  }
-
+export async function handlePullRequestEvent(
+  payload: GitHubPRPayload,
+  options?: { cachedInstallation?: GithubInstallationRow },
+): Promise<void> {
   const db = getDb();
 
-  const installation = await findGithubInstallationRow(db, payload);
+  const installation =
+    options?.cachedInstallation ?? (await findGithubInstallationRow(db, payload));
   if (!installation) return;
 
   const businessId = installation.businessId;

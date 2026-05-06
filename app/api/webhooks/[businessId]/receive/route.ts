@@ -2,17 +2,9 @@ import { getDb } from "@/db/index";
 import { webhookDeliveries } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
 import { verifySignature } from "@/lib/webhooks/hmac";
+import { isPostgresUniqueViolation } from "@/lib/webhooks/pg-errors";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "23505"
-  );
-}
 
 export async function POST(
   req: NextRequest,
@@ -70,7 +62,7 @@ export async function POST(
       attempts: 1,
     });
   } catch (err) {
-    if (isUniqueViolation(err)) {
+    if (isPostgresUniqueViolation(err)) {
       return new NextResponse(null, { status: 202 });
     }
     throw err;

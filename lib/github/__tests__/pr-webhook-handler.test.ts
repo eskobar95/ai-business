@@ -33,11 +33,26 @@ const mockDb = vi.hoisted(() => ({
   },
   insert: vi.fn(),
   update: vi.fn(),
+  select: vi.fn(),
 }));
 
 vi.mock("@/db/index", () => ({
   getDb: () => mockDb,
 }));
+
+const selectLimitMock = vi.hoisted(() => vi.fn());
+
+function wireJsonbInstallSelectMock() {
+  selectLimitMock.mockReset();
+  selectLimitMock.mockResolvedValue([]);
+  mockDb.select.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: selectLimitMock,
+      }),
+    }),
+  });
+}
 
 const INSTALL_UUID = "00000000-0000-4000-a000-000000000099";
 const BIZ_UUID = "00000000-0000-4000-a000-000000000088";
@@ -91,12 +106,50 @@ function basePayload(opts?: Partial<{ action: string; merged: boolean; baseRef: 
   };
 }
 
+describe("parseGithubPullRequestWebhook", () => {
+  it("accepts minimal valid shape", async () => {
+    const { parseGithubPullRequestWebhook } = await import("@/lib/github/pr-webhook-handler");
+    const body = basePayload() as unknown as Record<string, unknown>;
+    const r = parseGithubPullRequestWebhook(body);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.payload.number).toBe(42);
+  });
+
+  it("rejects missing number", async () => {
+    const { parseGithubPullRequestWebhook } = await import("@/lib/github/pr-webhook-handler");
+    const b = { ...basePayload(), number: "nope" } as unknown as Record<string, unknown>;
+    const r = parseGithubPullRequestWebhook(b);
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("findGithubInstallationRow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    wireJsonbInstallSelectMock();
+    mockDb.query.githubInstallations.findFirst.mockResolvedValue(undefined);
+  });
+
+  it("uses jsonb repos containment when installation lookup misses", async () => {
+    selectLimitMock.mockResolvedValue([installationRow()]);
+    const { findGithubInstallationRow } = await import("@/lib/github/pr-webhook-handler");
+    // Mock neon Drizzle client (getDb replacement in tests).
+    // @ts-expect-error test double mirrors ReturnType<typeof getDb>
+    const row = await findGithubInstallationRow(mockDb, {
+      repository: { full_name: "acme/app" },
+      installation: { id: 33333 },
+    });
+    expect(row?.id).toBe(INSTALL_UUID);
+  });
+});
+
 describe("handlePullRequestEvent", () => {
   const setMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     verifySignatureMock.mockReturnValue(true);
+    wireJsonbInstallSelectMock();
     mockDb.query.webhookDeliveries.findFirst.mockResolvedValue(null);
     mockDb.query.githubInstallations.findFirst.mockResolvedValue(undefined);
     mockDb.query.githubInstallations.findMany.mockResolvedValue([]);
@@ -281,6 +334,7 @@ describe("POST /api/github/webhook", () => {
     vi.clearAllMocks();
     process.env.GITHUB_WEBHOOK_SECRET = "gh-test-secret";
     verifySignatureMock.mockReturnValue(true);
+    wireJsonbInstallSelectMock();
     mockDb.query.webhookDeliveries.findFirst.mockResolvedValue(null);
     mockDb.query.githubInstallations.findFirst.mockResolvedValue(undefined);
     mockDb.query.githubInstallations.findMany.mockResolvedValue([]);
@@ -374,5 +428,47 @@ describe("POST /api/github/webhook", () => {
     });
     const res = await mod.POST(req);
     expect(res.status).toBe(202);
+  });
+
+  it("returns 422 for malformed pull_request and persists delivery with null businessId", async () => {
+    const valuesSpy = vi.fn().mockResolvedValue(undefined);
+    mockDb.insert.mockImplementation(() => ({ values: valuesSpy }));
+    mockDb.query.githubInstallations.findFirst.mockResolvedValue(undefined);
+    const mod = await import("@/app/api/github/webhook/route");
+    const body = { action: "opened", installation: { id: 1 } };
+    const req = new NextRequest("http://localhost/api/github/webhook", {
+      method: "POST",
+      headers: githubHeaders(body, "pull_request", "del-bad-pr"),
+      body: JSON.stringify(body),
+    });
+    const res = await mod.POST(req);
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { reason?: string };
+    expect(json.reason).toBeDefined();
+    expect(valuesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: null,
+        type: "pull_request",
+        payload: expect.objectContaining({ _validationError: expect.any(String) }),
+      }),
+    );
+  });
+
+  it("returns 200 for ping and persists with null businessId when installation unknown", async () => {
+    const valuesSpy = vi.fn().mockResolvedValue(undefined);
+    mockDb.insert.mockImplementation(() => ({ values: valuesSpy }));
+    mockDb.query.githubInstallations.findFirst.mockResolvedValue(undefined);
+    const mod = await import("@/app/api/github/webhook/route");
+    const body = { zen: "x" };
+    const req = new NextRequest("http://localhost/api/github/webhook", {
+      method: "POST",
+      headers: githubHeaders(body, "ping", "del-ping-null"),
+      body: JSON.stringify(body),
+    });
+    const res = await mod.POST(req);
+    expect(res.status).toBe(200);
+    expect(valuesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ businessId: null, type: "ping" }),
+    );
   });
 });

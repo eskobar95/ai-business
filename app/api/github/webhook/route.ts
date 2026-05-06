@@ -3,20 +3,12 @@ import { webhookDeliveries } from "@/db/schema";
 import {
   findGithubInstallationRow,
   handlePullRequestEvent,
-  type GitHubPRPayload,
+  parseGithubPullRequestWebhook,
 } from "@/lib/github/pr-webhook-handler";
 import { verifySignature } from "@/lib/webhooks/hmac";
+import { isPostgresUniqueViolation } from "@/lib/webhooks/pg-errors";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "23505"
-  );
-}
 
 /** GitHub sends `sha256=<hex>`; verifySignature expects lowercase hex bytes. */
 function githubWebhookSignatureHex(sigHeader: string): string {
@@ -26,7 +18,7 @@ function githubWebhookSignatureHex(sigHeader: string): string {
 }
 
 async function persistDelivery(opts: {
-  businessId: string;
+  businessId: string | null;
   githubEventType: string;
   payload: Record<string, unknown>;
   idempotencyKey: string;
@@ -34,7 +26,7 @@ async function persistDelivery(opts: {
   const db = getDb();
   try {
     await db.insert(webhookDeliveries).values({
-      businessId: opts.businessId,
+      businessId: opts.businessId ?? null,
       type: opts.githubEventType,
       payload: opts.payload,
       status: "delivered",
@@ -43,7 +35,7 @@ async function persistDelivery(opts: {
     });
     return "inserted";
   } catch (err) {
-    if (isUniqueViolation(err)) return "duplicate";
+    if (isPostgresUniqueViolation(err)) return "duplicate";
     throw err;
   }
 }
@@ -94,23 +86,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  const tenantInstallation = await findGithubInstallationRow(db, body);
+
+  let parsedPr = null as ReturnType<typeof parseGithubPullRequestWebhook> | null;
+  let pullRequestMalformed = false;
+
   if (githubEventType === "pull_request") {
-    await handlePullRequestEvent(body as unknown as GitHubPRPayload);
+    parsedPr = parseGithubPullRequestWebhook(body);
+    if (parsedPr.ok) {
+      await handlePullRequestEvent(parsedPr.payload, { cachedInstallation: tenantInstallation });
+    } else {
+      pullRequestMalformed = true;
+      console.warn("[github webhook] Invalid pull_request JSON shape:", parsedPr.reason);
+      body = {
+        ...body,
+        _validationError: parsedPr.reason,
+      };
+    }
   }
 
-  const installRow = await findGithubInstallationRow(db, body);
-  const businessId = installRow?.businessId ?? null;
+  const outcome = await persistDelivery({
+    businessId: tenantInstallation?.businessId ?? null,
+    githubEventType: githubEventType || "unknown",
+    payload: body,
+    idempotencyKey,
+  });
+  if (outcome === "duplicate") {
+    return new NextResponse(null, { status: 202 });
+  }
 
-  if (businessId) {
-    const outcome = await persistDelivery({
-      businessId,
-      githubEventType: githubEventType || "unknown",
-      payload: body,
-      idempotencyKey,
+  if (pullRequestMalformed && parsedPr && !parsedPr.ok) {
+    return NextResponse.json({ error: "Invalid pull_request payload", reason: parsedPr.reason }, {
+      status: 422,
     });
-    if (outcome === "duplicate") {
-      return new NextResponse(null, { status: 202 });
-    }
   }
 
   if (githubEventType === "ping") {
