@@ -209,6 +209,7 @@ describe("seedEnterpriseTemplate", () => {
 
     expect(getUpdatePayload()?.templateId).toBe("conduro.enterprise");
     expect(getUpdatePayload()?.templateVersion).toBe("3.0.0");
+    expect(getUpdatePayload()?.templateSeeded).toBe(true);
 
     expect(insertCounts.get(agents)).toBe(1);
     expect(insertCounts.get(teams)).toBe(1);

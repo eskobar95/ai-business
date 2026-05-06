@@ -13,6 +13,13 @@ import type { AppDb } from "@/lib/templates/db-types";
 import { TemplateSeedError } from "@/lib/templates/template-errors";
 import type { BundlePayload } from "@/lib/templates/zod-schemas";
 
+export type SeedEnterpriseTemplateResult = {
+  teams: number;
+  agents: number;
+  edges: number;
+  gates: number;
+};
+
 /**
  * Idempotent seed: upserts agents, teams, memberships, gate kinds, and communication edges.
  * Caller must verify bundle integrity (`verifyAndParseBundle`) before invoking.
@@ -25,7 +32,7 @@ export async function seedEnterpriseTemplate(
   db: AppDb,
   businessId: string,
   bundle: BundlePayload,
-): Promise<void> {
+): Promise<SeedEnterpriseTemplateResult> {
   const templateId = bundle.manifest.template_id;
   const templateVersion = bundle.manifest.template_version;
 
@@ -232,6 +239,7 @@ export async function seedEnterpriseTemplate(
       templateVersion,
       derivedFromTemplateId: templateId,
       derivedFromTemplateVersion: templateVersion,
+      templateSeeded: true,
     })
     .where(eq(businesses.id, businessId))
     .returning({ id: businesses.id });
@@ -242,4 +250,11 @@ export async function seedEnterpriseTemplate(
       `Business ${businessId} was not found when applying template lineage (concurrent delete?).`,
     );
   }
+
+  return {
+    teams: bundle.shards.teams.length,
+    agents: bundle.shards.agents.length,
+    edges: bundle.shards.communication_policy.edges.length,
+    gates: bundle.shards.gates.gate_kinds.length,
+  };
 }
