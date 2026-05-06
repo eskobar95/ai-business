@@ -12,7 +12,8 @@ import {
   AgentSettingsAdapterRunPolicySections,
   type AgentAdapterId,
 } from "@/components/agents/agent-settings-form-adapter-run-policy-part";
-import { FieldInput, SectionDivider } from "@/components/agents/agent-settings-form-fields-part";
+import { FieldInput } from "@/components/agents/agent-settings-form-fields-part";
+import { FieldHint } from "@/components/settings/field-hint";
 import { PrimaryButton } from "@/components/ui/primary-button";
 
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -79,14 +80,17 @@ export function AgentSettingsForm({
   );
   const [showIconPicker, setShowIconPicker] = useState(false);
 
-  // Adapter (UI-only stubs)
-  const [adapter, setAdapter] = useState<AgentAdapterId>("cursor_cli");
-  const [model, setModel] = useState("auto");
-  const [thinkingEffort, setThinkingEffort] = useState("auto");
+  // Cursor runtime (wired to DB)
+  const [cursorModelId, setCursorModelId] = useState(agent.cursorModelId ?? "auto");
+  const [cursorThinkingEffort, setCursorThinkingEffort] = useState(
+    agent.cursorThinkingEffort ?? "auto",
+  );
+  const [heartbeatPromotionCap, setHeartbeatPromotionCap] = useState(
+    String(agent.heartbeatPromotionCap ?? 3),
+  );
 
-  // Run policy (UI-only stubs)
-  const [heartbeatEnabled, setHeartbeatEnabled] = useState(false);
-  const [heartbeatInterval, setHeartbeatInterval] = useState("30");
+  // Beholder adapter som UI-only for nu (Hermes/Multi er post-MVP)
+  const [adapter, setAdapter] = useState<AgentAdapterId>("cursor_cli");
 
   // Permissions (UI-only stubs)
   const [permissions, setPermissions] = useState<AgentSettingsPermissionsState>({
@@ -99,9 +103,21 @@ export function AgentSettingsForm({
 
   const peers = peerAgents.filter((p) => p.id !== agent.id);
 
+  const selectedSystemRole = platformSystemRoles.find((r) => r.id === systemRoleId);
+  const showHeartbeatCap = selectedSystemRole?.runsHeartbeat === true;
+
   useEffect(() => {
     setSystemRoleId(agent.systemRoleId ?? "");
-  }, [agent.systemRoleId]);
+    setCursorModelId(agent.cursorModelId ?? "auto");
+    setCursorThinkingEffort(agent.cursorThinkingEffort ?? "auto");
+    setHeartbeatPromotionCap(String(agent.heartbeatPromotionCap ?? 3));
+  }, [
+    agent.id,
+    agent.systemRoleId,
+    agent.cursorModelId,
+    agent.cursorThinkingEffort,
+    agent.heartbeatPromotionCap,
+  ]);
 
   useEffect(() => {
     setSelectedIcon(agent.iconKey && isAgentPlatformIconId(agent.iconKey) ? agent.iconKey : null);
@@ -310,14 +326,24 @@ export function AgentSettingsForm({
           placeholder="Agent name"
           testId="agent-name"
         />
-        <FieldInput
-          id="agent-role"
-          label="Custom role"
-          value={role}
-          onChange={setRole}
-          placeholder="e.g. Senior Developer"
-          testId="agent-role"
-        />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="agent-role" className="section-label flex items-center gap-1">
+            Agent role
+            <FieldHint text="Fri tekst — vises som agentens jobtitel. Påvirker ikke runner-adfærd." />
+          </label>
+          <input
+            id="agent-role"
+            data-testid="agent-role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="e.g. Senior Developer"
+            className={cn(
+              "h-9 w-full rounded-md border border-border bg-transparent",
+              "px-3 text-[13px] text-foreground placeholder:text-muted-foreground/30",
+              "outline-none transition-colors focus:border-white/[0.18]",
+            )}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-3">
@@ -363,14 +389,13 @@ export function AgentSettingsForm({
       <AgentSettingsAdapterRunPolicySections
         adapter={adapter}
         setAdapter={setAdapter}
-        model={model}
-        setModel={setModel}
-        thinkingEffort={thinkingEffort}
-        setThinkingEffort={setThinkingEffort}
-        heartbeatEnabled={heartbeatEnabled}
-        setHeartbeatEnabled={setHeartbeatEnabled}
-        heartbeatInterval={heartbeatInterval}
-        setHeartbeatInterval={setHeartbeatInterval}
+        cursorModelId={cursorModelId}
+        setCursorModelId={setCursorModelId}
+        cursorThinkingEffort={cursorThinkingEffort}
+        setCursorThinkingEffort={setCursorThinkingEffort}
+        heartbeatPromotionCap={heartbeatPromotionCap}
+        setHeartbeatPromotionCap={setHeartbeatPromotionCap}
+        showHeartbeatCap={showHeartbeatCap}
       />
 
       <AgentSettingsPermissionsSection

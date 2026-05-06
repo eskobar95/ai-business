@@ -11,6 +11,7 @@ import type { AgentCommunicationCanvasRow } from "@/lib/agents/communication-can
 import { validateReportsToForBusiness } from "./reports-cycle";
 
 import { resolveAvatarColumnsForUpsert } from "@/lib/agents/avatar-upsert";
+import { assertValidAgentCursorPatchFields } from "@/lib/agents/cursor-agent-config";
 
 export type { AgentCommunicationCanvasRow } from "@/lib/agents/communication-canvas";
 
@@ -130,7 +131,17 @@ export async function createAgent(params: {
 export async function updateAgent(
   agentId: string,
   patch: Partial<
-    Pick<typeof agents.$inferSelect, "name" | "role" | "reportsToAgentId" | "systemRoleId"> & {
+    Pick<
+      typeof agents.$inferSelect,
+      | "name"
+      | "role"
+      | "reportsToAgentId"
+      | "systemRoleId"
+      | "cursorModelId"
+      | "cursorThinkingEffort"
+      | "cursorRuntimeProfile"
+      | "heartbeatPromotionCap"
+    > & {
       instructions?: string;
     }
   >,
@@ -168,11 +179,36 @@ export async function updateAgent(
     payload.systemRoleId = patch.systemRoleId;
   }
 
+  assertValidAgentCursorPatchFields({
+    cursorModelId: patch.cursorModelId,
+    cursorThinkingEffort: patch.cursorThinkingEffort,
+    heartbeatPromotionCap: patch.heartbeatPromotionCap,
+  });
+
+  if (patch.cursorModelId !== undefined) {
+    payload.cursorModelId = patch.cursorModelId;
+  }
+  if (patch.cursorThinkingEffort !== undefined) {
+    payload.cursorThinkingEffort = patch.cursorThinkingEffort;
+  }
+  if (patch.cursorRuntimeProfile !== undefined) {
+    const profile = patch.cursorRuntimeProfile.trim();
+    if (!profile) throw new Error("cursorRuntimeProfile cannot be empty");
+    payload.cursorRuntimeProfile = profile;
+  }
+  if (patch.heartbeatPromotionCap !== undefined) {
+    payload.heartbeatPromotionCap = patch.heartbeatPromotionCap;
+  }
+
   const shouldPatchAgentRow =
     patch.name !== undefined ||
     patch.role !== undefined ||
     patch.reportsToAgentId !== undefined ||
-    patch.systemRoleId !== undefined;
+    patch.systemRoleId !== undefined ||
+    patch.cursorModelId !== undefined ||
+    patch.cursorThinkingEffort !== undefined ||
+    patch.cursorRuntimeProfile !== undefined ||
+    patch.heartbeatPromotionCap !== undefined;
 
   // Neon HTTP driver does not support `db.transaction()`; run steps sequentially.
   if (patch.instructions !== undefined) {
