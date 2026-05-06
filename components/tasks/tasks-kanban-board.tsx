@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { KanbanBoard } from "@/components/ui/kanban-board";
 import { TaskCreateModal } from "@/components/tasks/task-create-modal";
 import { cn } from "@/lib/utils";
-import { updateTaskStatus } from "@/lib/tasks/actions";
+import { updateTaskStatus, promoteTaskToTodo } from "@/lib/tasks/actions";
 import type { TaskRow, TaskStatus } from "@/lib/tasks/task-tree";
 
 const COLUMNS: { id: TaskStatus; title: string }[] = [
@@ -22,7 +22,7 @@ const COLUMNS: { id: TaskStatus; title: string }[] = [
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/30",
-  todo: "bg-indigo-400 animate-pulse",
+  todo: "bg-indigo-300",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",
@@ -40,7 +40,7 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
 
 const COL_ACCENT: Record<TaskStatus, string> = {
   backlog: "text-muted-foreground/50",
-  todo: "text-indigo-400",
+  todo: "text-indigo-300",
   in_progress: "text-primary",
   blocked: "text-destructive",
   in_review: "text-amber-400",
@@ -313,9 +313,11 @@ export function TasksKanbanBoard({
         const from = findColumn(prev, id);
         const to = findColumn(next, id);
         if (from && to && from !== to) {
-          void updateTaskStatus(id, to as TaskStatus)
-            .then(() => router.refresh())
-            .catch(() => router.refresh());
+          const move =
+            from === "backlog" && to === "todo"
+              ? promoteTaskToTodo(id)
+              : updateTaskStatus(id, to as TaskStatus);
+          void move.then(() => router.refresh()).catch(() => router.refresh());
           break;
         }
       }

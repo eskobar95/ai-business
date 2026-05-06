@@ -46,7 +46,7 @@ export const STATUSES: TaskStatus[] = [
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
   backlog: "bg-muted-foreground/30",
-  todo: "bg-indigo-400 animate-pulse",
+  todo: "bg-indigo-300",
   in_progress: "bg-primary animate-pulse",
   blocked: "bg-destructive",
   in_review: "bg-amber-400",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -26,6 +26,7 @@ import {
   updateTaskProject,
   addTaskRelation,
   removeTaskRelation,
+  updateTaskDependency,
 } from "@/lib/tasks/actions";
 import type { Priority } from "@/lib/tasks/task-detail-display";
 import type { TaskStatus } from "@/lib/tasks/task-tree";
@@ -34,6 +35,107 @@ import {
   PriorityDropdown,
   StatusDropdown,
 } from "@/components/tasks/task-detail-dropdowns";
+import { TaskPrLinkForm } from "@/components/tasks/task-pr-link-form";
+import { TaskGateStatus } from "@/components/tasks/task-gate-status";
+
+function dependencyDepBadgeClass(status: string): string {
+  if (status === "done") return "text-emerald-500/85";
+  if (status === "in_progress") return "text-amber-400/85";
+  return "text-muted-foreground/50";
+}
+
+function BlockedBySection({
+  taskId,
+  initialDependency,
+  allTasks,
+}: {
+  taskId: string;
+  initialDependency: { id: string; title: string; status: string } | null;
+  allTasks: {
+    id: string;
+    title: string;
+    status: string;
+    priority: string | null;
+    project: string | null;
+  }[];
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(initialDependency?.id ?? "");
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setValue(initialDependency?.id ?? "");
+  }, [initialDependency?.id]);
+
+  const selectedFromList = value ? allTasks.find((t) => t.id === value) : null;
+  const selected =
+    selectedFromList ??
+    (initialDependency && initialDependency.id === value ? initialDependency : null);
+
+  function onSelect(next: string) {
+    setValue(next);
+    const depId = next.length > 0 ? next : null;
+    startTransition(async () => {
+      try {
+        await updateTaskDependency(taskId, depId);
+        router.refresh();
+      } catch {
+        toast.error("Failed to update dependency");
+        setValue(initialDependency?.id ?? "");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1">
+        <label htmlFor="task-dependency-select" className="sr-only">
+          Blocked by task
+        </label>
+        <select
+          id="task-dependency-select"
+          value={value}
+          onChange={(e) => onSelect(e.target.value)}
+          className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[12px] text-foreground/80 outline-none focus:border-white/[0.16]"
+        >
+          <option value="">No dependency</option>
+          {(initialDependency && !allTasks.some((t) => t.id === initialDependency.id)
+            ? [
+                {
+                  id: initialDependency.id,
+                  title: initialDependency.title,
+                  status: initialDependency.status,
+                  priority: null as string | null,
+                  project: null as string | null,
+                },
+              ]
+            : []
+          )
+            .concat(allTasks.filter((t) => t.id !== taskId))
+            .map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title} ({t.status})
+              </option>
+            ))}
+        </select>
+        <button
+          type="button"
+          title="Task cannot auto-start (todo) until this task is done."
+          className="shrink-0 rounded px-1.5 font-mono text-[11px] text-muted-foreground/35 hover:text-muted-foreground/60"
+          aria-label="Dependency help"
+        >
+          ?
+        </button>
+      </div>
+      {selected ? (
+        <p className={cn("text-[11px]", dependencyDepBadgeClass(selected.status))}>
+          {selected.status === "done" ? "✓" : selected.status === "in_progress" ? "⧗" : "○"} Dependency:{" "}
+          {selected.status.replace("_", " ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export function SidebarSection({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -445,6 +547,13 @@ export type TaskDetailSidebarProps = {
   onStatusChange: (s: TaskStatus) => void;
   onPriorityChange: (p: Priority) => void;
   onAssigneeChange: (id: string | null) => void;
+  dependencyTask: { id: string; title: string; status: string } | null;
+  githubInstallations: { id: string; label: string }[];
+  integrationBranch: string | null;
+  githubPrNumber: number | null;
+  githubRepoInstallationId: string | null;
+  githubPrStatus: string | null;
+  prMergedToIntegration: boolean;
 };
 
 export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
@@ -469,6 +578,13 @@ export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
     onStatusChange,
     onPriorityChange,
     onAssigneeChange,
+    dependencyTask,
+    githubInstallations,
+    integrationBranch,
+    githubPrNumber,
+    githubRepoInstallationId,
+    githubPrStatus,
+    prMergedToIntegration,
   } = props;
 
   return (
@@ -500,14 +616,43 @@ export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
           <ProjectField taskId={taskId} initialProject={project} />
         </SidebarSection>
 
-        <SidebarSection label="Pull Reqs">
+        <SidebarSection label="Blocked by">
+          <BlockedBySection taskId={taskId} initialDependency={dependencyTask} allTasks={allTasks} />
+        </SidebarSection>
+
+        {(status === "todo" || status === "backlog") &&
+        (dependencyTask != null || githubPrNumber != null) ? (
+          <SidebarSection label="Gate status">
+            <TaskGateStatus
+              taskStatus={status}
+              dependencyTask={dependencyTask}
+              prMergedToIntegration={prMergedToIntegration}
+              githubPrStatus={githubPrStatus}
+              githubPrNumber={githubPrNumber}
+              integrationBranch={integrationBranch}
+            />
+          </SidebarSection>
+        ) : null}
+
+        <SidebarSection label="Approval">
           {approvalId ? (
             <span className="flex items-center gap-1.5 text-[12.5px] text-primary/60">
-              <GitFork className="size-3" />1 linked PR
+              <GitFork className="size-3" />
+              Linked approval
             </span>
           ) : (
             <span className="text-muted-foreground/35">–</span>
           )}
+        </SidebarSection>
+
+        <SidebarSection label="Pull request">
+          <TaskPrLinkForm
+            taskId={taskId}
+            initialGithubPrNumber={githubPrNumber}
+            initialGithubRepoInstallationId={githubRepoInstallationId}
+            githubPrStatus={githubPrStatus}
+            installations={githubInstallations}
+          />
         </SidebarSection>
 
         <SidebarSection label="Relations">

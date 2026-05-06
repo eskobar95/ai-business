@@ -3,9 +3,12 @@
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { assertUserOwnsAgent } from "@/lib/agents/actions";
 import { getDb } from "@/db/index";
-import { approvals, tasks, taskRelations } from "@/db/schema";
+import { approvals, businesses, githubInstallations, tasks, taskRelations } from "@/db/schema";
+import { logEvent } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
-import { asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+
+import { assertMayPromoteToTodo } from "./promotion-auth";
 
 import {
   buildDeleteOrderForSubtree,
@@ -236,6 +239,116 @@ export async function updateTaskTeam(taskId: string, teamId: string | null): Pro
   await assertTaskInBusinessForUser(taskId);
   const db = getDb();
   await db.update(tasks).set({ teamId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+}
+
+export async function promoteTaskToTodo(taskId: string): Promise<void> {
+  const userId = await requireSessionUserId();
+  const db = getDb();
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+  });
+  if (!task) throw new Error("Task not found");
+  await assertUserBusinessAccess(userId, task.businessId);
+  if (task.status !== "backlog") throw new Error("Task must be in backlog to promote");
+  await assertMayPromoteToTodo(taskId, userId, "human");
+  await db
+    .update(tasks)
+    .set({ status: "todo", updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+  await logEvent({
+    type: "task.promoted_to_todo",
+    businessId: task.businessId,
+    payload: { taskId },
+    status: "succeeded",
+  });
+}
+
+export async function updateTaskDependency(taskId: string, dependencyTaskId: string | null): Promise<void> {
+  const task = await assertTaskInBusinessForUser(taskId);
+  const db = getDb();
+  if (dependencyTaskId === null) {
+    await db
+      .update(tasks)
+      .set({ dependencyTaskId: null, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId));
+    return;
+  }
+  if (dependencyTaskId === taskId) {
+    throw new Error("Task cannot depend on itself");
+  }
+  const dep = await db.query.tasks.findFirst({
+    where: eq(tasks.id, dependencyTaskId),
+    columns: { businessId: true },
+  });
+  if (!dep) throw new Error("Dependency task not found");
+  if (dep.businessId !== task.businessId) {
+    throw new Error("Dependency task must belong to the same business");
+  }
+  await db
+    .update(tasks)
+    .set({ dependencyTaskId, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function updateTaskPrLink(
+  taskId: string,
+  input: { githubPrNumber: number | null; githubRepoInstallationId: string | null },
+): Promise<void> {
+  const task = await assertTaskInBusinessForUser(taskId);
+  const db = getDb();
+  const pr = input.githubPrNumber;
+  const inst = input.githubRepoInstallationId;
+  const hasPr = pr != null;
+  const hasInst = inst != null;
+  if (hasPr !== hasInst) {
+    throw new Error("PR number and repository must both be set or both cleared");
+  }
+  if (hasPr && pr != null) {
+    if (!Number.isInteger(pr) || pr < 1) {
+      throw new Error("PR number must be a positive integer");
+    }
+    const row = await db.query.githubInstallations.findFirst({
+      where: and(eq(githubInstallations.id, inst!), eq(githubInstallations.businessId, task.businessId)),
+      columns: { id: true },
+    });
+    if (!row) throw new Error("GitHub installation not found for this business");
+  }
+
+  await db
+    .update(tasks)
+    .set({
+      githubPrNumber: hasPr ? pr : null,
+      githubRepoInstallationId: hasInst ? inst : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function listGithubInstallationsForBusiness(
+  businessId: string,
+): Promise<{ id: string; label: string }[]> {
+  const userId = await requireSessionUserId();
+  await assertUserBusinessAccess(userId, businessId);
+  const db = getDb();
+  const rows = await db.query.githubInstallations.findMany({
+    where: eq(githubInstallations.businessId, businessId),
+    columns: { id: true, accountLogin: true, repos: true },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.repos?.[0] ? `${r.repos[0]} (${r.accountLogin})` : r.accountLogin,
+  }));
+}
+
+export async function getBusinessIntegrationBranch(businessId: string): Promise<string | null> {
+  const userId = await requireSessionUserId();
+  await assertUserBusinessAccess(userId, businessId);
+  const db = getDb();
+  const row = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { integrationBranch: true },
+  });
+  return row?.integrationBranch ?? null;
 }
 
 export async function addTaskRelation(

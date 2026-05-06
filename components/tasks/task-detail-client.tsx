@@ -26,6 +26,7 @@ import {
   updateTaskPriority,
   updateTaskAssignee,
   updateTaskTeam,
+  promoteTaskToTodo,
 } from "@/lib/tasks/actions";
 import type { Priority } from "@/lib/tasks/task-detail-display";
 import type { TaskRow, TaskStatus } from "@/lib/tasks/task-tree";
@@ -46,6 +47,9 @@ type Props = {
   allTeams: { id: string; name: string }[];
   taskRelations: TaskRelationItem[];
   allTasks: { id: string; title: string; status: string; priority: string | null; project: string | null }[];
+  dependencyTask: { id: string; title: string; status: string } | null;
+  githubInstallations: { id: string; label: string }[];
+  integrationBranch: string | null;
 };
 
 function DescriptionEditor({
@@ -123,6 +127,9 @@ export function TaskDetailClient({
   allTeams: _allTeams,
   taskRelations: initialRelations,
   allTasks,
+  dependencyTask,
+  githubInstallations,
+  integrationBranch,
 }: Props) {
   const router = useRouter();
 
@@ -185,7 +192,11 @@ export function TaskDetailClient({
     setStatus(next);
     statusTransition(async () => {
       try {
-        await updateTaskStatus(task.id, next);
+        if (next === "todo" && task.status === "backlog") {
+          await promoteTaskToTodo(task.id);
+        } else {
+          await updateTaskStatus(task.id, next);
+        }
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update status");
@@ -390,6 +401,13 @@ export function TaskDetailClient({
           onStatusChange={handleStatusChange}
           onPriorityChange={handlePriorityChange}
           onAssigneeChange={handleAssigneeChange}
+          dependencyTask={dependencyTask}
+          githubInstallations={githubInstallations}
+          integrationBranch={integrationBranch}
+          githubPrNumber={task.githubPrNumber ?? null}
+          githubRepoInstallationId={task.githubRepoInstallationId ?? null}
+          githubPrStatus={task.githubPrStatus ?? null}
+          prMergedToIntegration={task.prMergedToIntegration}
         />
       </aside>
     </div>

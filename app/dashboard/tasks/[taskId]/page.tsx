@@ -4,7 +4,7 @@ import { TaskDetailClient } from "@/components/tasks/task-detail-client";
 import { auth } from "@/lib/auth/server";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 import { getAgentsByBusiness } from "@/lib/agents/actions";
-import { getTaskById, getTaskRelations, getRecentTasksForBusiness } from "@/lib/tasks/actions";
+import { getTaskById, getTaskRelations, getRecentTasksForBusiness, listGithubInstallationsForBusiness, getBusinessIntegrationBranch } from "@/lib/tasks/actions";
 import { getTaskLogs } from "@/lib/tasks/log-actions";
 import { listTeamsByBusiness } from "@/lib/teams/actions";
 
@@ -32,13 +32,23 @@ export default async function TaskDetailPage({
     redirect("/auth/sign-in");
   }
 
-  const [agents, logs, teams, relations, recentTasks] = await Promise.all([
+  const [agents, logs, teams, relations, recentTasks, githubInstallations, integrationBranch] = await Promise.all([
     getAgentsByBusiness(businessId),
     getTaskLogs(taskId),
     listTeamsByBusiness(businessId),
     getTaskRelations(task.id, businessId),
     getRecentTasksForBusiness(businessId, 50),
+    listGithubInstallationsForBusiness(businessId),
+    getBusinessIntegrationBranch(businessId),
   ]);
+
+  let dependencyTask: { id: string; title: string; status: string } | null = null;
+  if (task.dependencyTaskId) {
+    const dep = await getTaskById(task.dependencyTaskId);
+    if (dep) {
+      dependencyTask = { id: dep.id, title: dep.title, status: dep.status };
+    }
+  }
 
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
   const assignedName = task.agentId ? (agentNames[task.agentId] ?? null) : null;
@@ -69,6 +79,9 @@ export default async function TaskDetailPage({
         allTeams={allTeams}
         taskRelations={relations}
         allTasks={recentTasks}
+        dependencyTask={dependencyTask}
+        githubInstallations={githubInstallations}
+        integrationBranch={integrationBranch}
       />
     </div>
   );

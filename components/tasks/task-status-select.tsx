@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 
 import type { TaskStatus } from "@/lib/tasks/task-tree";
-import { updateTaskStatus } from "@/lib/tasks/actions";
+import { updateTaskStatus, promoteTaskToTodo } from "@/lib/tasks/actions";
 
 const OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: "backlog", label: "Backlog" },
@@ -49,7 +49,11 @@ export function TaskStatusSelect({
           const next = e.target.value as TaskStatus;
           startTransition(async () => {
             try {
-              await updateTaskStatus(taskId, next);
+              if (next === "todo" && initialStatus === "backlog") {
+                await promoteTaskToTodo(taskId);
+              } else {
+                await updateTaskStatus(taskId, next);
+              }
               toast.success("Status updated.");
               router.refresh();
             } catch (err) {
@@ -59,7 +63,15 @@ export function TaskStatusSelect({
         }}
       >
         {OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option
+            key={o.value}
+            value={o.value}
+            title={
+              o.value === "todo"
+                ? "Agent starts automatically when gates are green."
+                : undefined
+            }
+          >
             {o.label}
           </option>
         ))}
