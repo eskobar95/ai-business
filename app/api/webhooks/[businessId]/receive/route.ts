@@ -2,17 +2,9 @@ import { getDb } from "@/db/index";
 import { webhookDeliveries } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
 import { verifySignature } from "@/lib/webhooks/hmac";
+import { tryInsertWebhookDelivery } from "@/lib/webhooks/try-insert-webhook-delivery";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "23505"
-  );
-}
 
 export async function POST(
   req: NextRequest,
@@ -60,20 +52,16 @@ export async function POST(
 
   const eventType = typeof body.event_type === "string" ? body.event_type : "unknown";
 
-  try {
-    await db.insert(webhookDeliveries).values({
-      businessId,
-      type: eventType,
-      payload: body,
-      idempotencyKey,
-      status: "delivered",
-      attempts: 1,
-    });
-  } catch (err) {
-    if (isUniqueViolation(err)) {
-      return new NextResponse(null, { status: 202 });
-    }
-    throw err;
+  const insertOutcome = await tryInsertWebhookDelivery({
+    businessId,
+    type: eventType,
+    payload: body,
+    idempotencyKey,
+    status: "delivered",
+    attempts: 1,
+  });
+  if (insertOutcome === "duplicate") {
+    return new NextResponse(null, { status: 202 });
   }
 
   await logEvent({

@@ -1,5 +1,9 @@
 # Scripts
 
+## `run-vitest.mjs`
+
+**`npm test`** invokes this launcher. Some Windows setups with a secondary git worktree collect **zero Vitest tasks** unless Vitest starts from the primary checkout with `-r <worktree>`. The script delegates to **`../ai-business`** when present and different from the project root; override with **`AI_BUSINESS_PRIMARY_ROOT`**. Single CI checkouts run Vitest locally (no sibling).
+
 ## `run-drizzle-migrate.mjs`
 
 Runs Drizzle migrations from `./drizzle` using the **`postgres`** TCP client (see `package.json` script **`npm run db:migrate`**). Prefer **`DATABASE_DIRECT_URL`** for Neon when available; otherwise **`DATABASE_URL`**.

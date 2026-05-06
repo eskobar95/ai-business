@@ -494,6 +494,7 @@ export const githubInstallations = pgTable(
     uniqueIndex("github_installations_business_id_unique").on(t.businessId),
     uniqueIndex("github_installations_installation_id_unique").on(t.installationId),
     index("github_installations_business_id_idx").on(t.businessId),
+    index("github_installations_repos_gin_idx").using("gin", t.repos),
   ],
 );
 
@@ -681,9 +682,8 @@ export const webhookDeliveries = pgTable(
   "webhook_deliveries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    businessId: uuid("business_id")
-      .notNull()
-      .references(() => businesses.id, { onDelete: "cascade" }),
+    /** Nullable when the provider cannot resolve a tenant; idempotency still uses `idempotency_key`. */
+    businessId: uuid("business_id").references(() => businesses.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull(),
     status: text("status").notNull(),

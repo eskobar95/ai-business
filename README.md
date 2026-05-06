@@ -34,6 +34,12 @@ Database scripts:
 | `npm run db:studio`   | Open Drizzle Studio                     |
 
 
+### Vitest og git worktrees (Windows)
+
+`npm test` kører [`scripts/run-vitest.mjs`](scripts/run-vitest.mjs): den finder Vitest i den aktuelle checkout, men **delegérer automatisk** til nabomappen `../ai-business`, når den findes og er en anden rod end worktree-noden (matcher `vitest run -r <worktree>` fra primær checkout). Sæt `AI_BUSINESS_PRIMARY_ROOT` til en absolut eller relativ sti til din primære clone, hvis nabomappen ikke hedder `ai-business`.
+
+CI (`npm test -- --run`) har typisk kun ét checkout og falder igennem til almindelig Vitest. `vitest.config.ts` bruger `passWithNoTests: false`, så tom test-opdagelse ikke ligner succes.
+
 ## CI (GitHub Actions)
 
 Workflow: `[.github/workflows/e2e.yml](.github/workflows/e2e.yml)` (job **quality**: Vitest + ESLint + `next build`; job **playwright**: migrate + Playwright).

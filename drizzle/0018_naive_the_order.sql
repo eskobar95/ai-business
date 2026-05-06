@@ -1,0 +1,1 @@
+CREATE INDEX "github_installations_repos_gin_idx" ON "github_installations" USING gin ("repos");

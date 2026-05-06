@@ -1,0 +1,1 @@
+ALTER TABLE "webhook_deliveries" ALTER COLUMN "business_id" DROP NOT NULL;
