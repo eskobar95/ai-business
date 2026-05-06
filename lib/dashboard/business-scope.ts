@@ -50,16 +50,10 @@ export async function loadUserBusinesses(): Promise<{ id: string; name: string }
   return rows;
 }
 
-/** Same as `loadUserBusinesses` but includes template seeding flag for setup banner. */
-export async function loadUserBusinessesWithSeedStatus(): Promise<
-  { id: string; name: string; templateSeeded: boolean }[]
-> {
-  const { data: session } = await auth.getSession();
-  const userId = session?.user?.id;
-  if (!userId || typeof userId !== "string") {
-    redirect("/auth/sign-in");
-  }
-
+/** Call after `auth.getSession()` has yielded a `userId` to avoid a second session fetch (e.g. dashboard). */
+export async function loadUserBusinessesWithSeedStatusForUser(
+  userId: string,
+): Promise<{ id: string; name: string; templateSeeded: boolean }[]> {
   const db = getDb();
   return db
     .select({
@@ -71,6 +65,19 @@ export async function loadUserBusinessesWithSeedStatus(): Promise<
     .innerJoin(businesses, eq(userBusinesses.businessId, businesses.id))
     .where(eq(userBusinesses.userId, userId))
     .orderBy(asc(businesses.createdAt));
+}
+
+/** Same as `loadUserBusinessesWithSeedStatusForUser` but loads session — use the ForUser variant when you already have `userId`. */
+export async function loadUserBusinessesWithSeedStatus(): Promise<
+  { id: string; name: string; templateSeeded: boolean }[]
+> {
+  const { data: session } = await auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId || typeof userId !== "string") {
+    redirect("/auth/sign-in");
+  }
+
+  return loadUserBusinessesWithSeedStatusForUser(userId);
 }
 
 /** Dashboard routes that scope state with `?businessId=`. */

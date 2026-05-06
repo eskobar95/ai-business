@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingApprovalsQueueClient } from "@/components/dashboard/pending-approvals-queue-client";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { auth } from "@/lib/auth/server";
-import { loadUserBusinessesWithSeedStatus } from "@/lib/dashboard/business-scope";
+import { loadUserBusinessesWithSeedStatusForUser } from "@/lib/dashboard/business-scope";
 import {
   getDashboardActivityFeed,
   getDashboardSummaryStats,
@@ -99,7 +99,7 @@ export default async function DashboardPage() {
     getDashboardSummaryStats(userId),
     getDashboardActivityFeed(userId, 20),
     listPendingApprovalsPreviewForUser(userId, 5),
-    loadUserBusinessesWithSeedStatus(),
+    loadUserBusinessesWithSeedStatusForUser(userId),
   ]);
 
   const seedTarget = businessesWithSeed.find((b) => !b.templateSeeded);
