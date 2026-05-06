@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { AgentDetailTabs } from "@/components/agents/agent-detail-tabs";
+import { AgentRoutinesTab } from "@/components/agents/agent-routines-tab";
 import { AgentSettingsForm } from "@/components/agents/agent-settings-form";
 import { AgentOnboardingHint } from "@/components/agents/agent-onboarding-hint";
 import { DocumentEditor } from "@/components/agents/document-editor";
@@ -15,6 +16,7 @@ import { getAgentDocuments } from "@/lib/agents/document-actions";
 import { getMcpCredentialsForAgent } from "@/lib/mcp/actions";
 import { getSkillsByAgent, listSkillsByBusiness } from "@/lib/skills/actions";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
+import { listRoutinesByAgentId } from "@/lib/routines/queries";
 import { getTasksByAgent } from "@/lib/tasks/actions";
 import { getAgentStatus } from "@/lib/orchestration/events";
 import { cn } from "@/lib/utils";
@@ -81,7 +83,7 @@ export default async function AgentDetailPage({
   const agent = peers.find((a) => a.id === agentId);
   if (!agent) notFound();
 
-  const [attached, library, mcpMeta, agentDocs, tasks, lifecycle, platformSystemRoles] =
+  const [attached, library, mcpMeta, agentDocs, tasks, lifecycle, platformSystemRoles, routineRows] =
     await Promise.all([
       getSkillsByAgent(agentId),
       listSkillsByBusiness(businessId),
@@ -90,6 +92,7 @@ export default async function AgentDetailPage({
       getTasksByAgent(agentId),
       getAgentStatus(agentId),
       listSystemRoles(),
+      listRoutinesByAgentId(agentId),
     ]);
 
   const recentTasks = tasks.slice(-10).reverse();
@@ -211,6 +214,13 @@ export default async function AgentDetailPage({
               businessId={businessId}
               attached={attached}
               library={library}
+            />
+          }
+          routines={
+            <AgentRoutinesTab
+              businessId={businessId}
+              agentId={agentId}
+              initialRoutines={routineRows}
             />
           }
           mcp={<McpInstaller businessId={businessId} agentId={agentId} meta={mcpMeta} />}

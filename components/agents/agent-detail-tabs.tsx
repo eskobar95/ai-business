@@ -4,12 +4,13 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "instructions" | "skills" | "mcp" | "settings";
+type Tab = "overview" | "instructions" | "skills" | "routines" | "mcp" | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "instructions", label: "Instructions" },
   { id: "skills", label: "Skills" },
+  { id: "routines", label: "Routines" },
   { id: "mcp", label: "MCP" },
   { id: "settings", label: "Settings" },
 ];
@@ -18,12 +19,14 @@ export function AgentDetailTabs({
   overview,
   instructions,
   skills,
+  routines,
   mcp,
   settings,
 }: {
   overview: ReactNode;
   instructions: ReactNode;
   skills: ReactNode;
+  routines: ReactNode;
   mcp: ReactNode;
   settings: ReactNode;
 }) {
@@ -33,6 +36,7 @@ export function AgentDetailTabs({
     overview,
     instructions,
     skills,
+    routines,
     mcp,
     settings,
   };

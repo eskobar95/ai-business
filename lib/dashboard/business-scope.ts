@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { getDb } from "@/db/index";
 import { businesses, userBusinesses } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { isOnboardingPath } from "./onboarding-path";
 
@@ -44,9 +44,40 @@ export async function loadUserBusinesses(): Promise<{ id: string; name: string }
     })
     .from(userBusinesses)
     .innerJoin(businesses, eq(userBusinesses.businessId, businesses.id))
-    .where(eq(userBusinesses.userId, userId));
+    .where(eq(userBusinesses.userId, userId))
+    .orderBy(asc(businesses.createdAt));
 
   return rows;
+}
+
+/** Call after `auth.getSession()` has yielded a `userId` to avoid a second session fetch (e.g. dashboard). */
+export async function loadUserBusinessesWithSeedStatusForUser(
+  userId: string,
+): Promise<{ id: string; name: string; templateSeeded: boolean }[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: businesses.id,
+      name: businesses.name,
+      templateSeeded: businesses.templateSeeded,
+    })
+    .from(userBusinesses)
+    .innerJoin(businesses, eq(userBusinesses.businessId, businesses.id))
+    .where(eq(userBusinesses.userId, userId))
+    .orderBy(asc(businesses.createdAt));
+}
+
+/** Same as `loadUserBusinessesWithSeedStatusForUser` but loads session — use the ForUser variant when you already have `userId`. */
+export async function loadUserBusinessesWithSeedStatus(): Promise<
+  { id: string; name: string; templateSeeded: boolean }[]
+> {
+  const { data: session } = await auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId || typeof userId !== "string") {
+    redirect("/auth/sign-in");
+  }
+
+  return loadUserBusinessesWithSeedStatusForUser(userId);
 }
 
 /** Dashboard routes that scope state with `?businessId=`. */
@@ -59,6 +90,7 @@ export type DashboardScopedPath =
   | "/dashboard/notion"
   | "/dashboard/webhooks"
   | "/dashboard/settings"
+  | "/dashboard/settings/integrations"
   | "/dashboard/projects"
   | "/dashboard/communication";
 

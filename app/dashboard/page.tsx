@@ -10,12 +10,15 @@ import {
 
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingApprovalsQueueClient } from "@/components/dashboard/pending-approvals-queue-client";
+import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { auth } from "@/lib/auth/server";
+import { loadUserBusinessesWithSeedStatusForUser } from "@/lib/dashboard/business-scope";
 import {
   getDashboardActivityFeed,
   getDashboardSummaryStats,
   listPendingApprovalsPreviewForUser,
 } from "@/lib/dashboard/home-data";
+import { getTemplatePreview } from "@/lib/templates/get-template-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -92,17 +95,37 @@ export default async function DashboardPage() {
   const userId = session?.user?.id;
   if (!userId || typeof userId !== "string") redirect("/auth/sign-in");
 
-  const [stats, activity, pendingPreview] = await Promise.all([
+  const [stats, activity, pendingPreview, businessesWithSeed] = await Promise.all([
     getDashboardSummaryStats(userId),
     getDashboardActivityFeed(userId, 20),
     listPendingApprovalsPreviewForUser(userId, 5),
+    loadUserBusinessesWithSeedStatusForUser(userId),
   ]);
+
+  const seedTarget = businessesWithSeed.find((b) => !b.templateSeeded);
+  let templatePreview: ReturnType<typeof getTemplatePreview> | null = null;
+  let templatePreviewError: string | null = null;
+  if (seedTarget) {
+    try {
+      templatePreview = getTemplatePreview();
+    } catch (e) {
+      templatePreviewError =
+        e instanceof Error ? e.message : "Failed to load enterprise template bundle.";
+    }
+  }
 
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader title="Command Center" />
 
       <div className="flex-1 px-6 py-5 space-y-5">
+        {seedTarget && (
+          <SetupBanner
+            businessId={seedTarget.id}
+            preview={templatePreview}
+            previewError={templatePreviewError}
+          />
+        )}
         {/* Stat row — Supabase style with section label above */}
         <div>
           <p className="section-label mb-3">Overview</p>

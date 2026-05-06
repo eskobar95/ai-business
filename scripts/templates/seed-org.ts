@@ -39,8 +39,8 @@ async function run(): Promise<void> {
   const raw = JSON.parse(readFileSync(bundlePath, "utf8"));
   const bundle = verifyAndParseBundle(raw);
   const db = getDb();
-  await seedEnterpriseTemplate(db, orgId, bundle);
-  console.log(`Seeded organization ${orgId} from ${bundlePath}`);
+  const summary = await seedEnterpriseTemplate(db, orgId, bundle);
+  console.log(`Seeded organization ${orgId} from ${bundlePath}`, summary);
 }
 
 run().catch((err) => {

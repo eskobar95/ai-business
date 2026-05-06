@@ -13,6 +13,7 @@ Server-only modules — **never** import secrets or `getInstallationToken()` fro
 | `agent-git-config.ts` | Builds `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env map for runner subprocesses. |
 | `installation-queries.ts` | Safe read for Settings (no tokens). |
 | `actions.ts` | `disconnectGithubInstallation` — revokes current token via GitHub `DELETE /installation/token` (throws from `rest.ts` on non-404 errors; caller logs `console.warn` but still deletes the DB row). |
+| `get-github-installed.ts` | Returns whether GitHub is connected for a business (used by dashboard banner). |
 
 ## Routes
 
