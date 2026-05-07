@@ -1,8 +1,11 @@
+import { logEvent } from "@/lib/orchestration/events";
+
 import { dispatchOrchestrationEvent } from "./dispatch";
-import { runnerLogError } from "./logger";
+import { runnerLog, runnerLogError } from "./logger";
 import {
   finishOrchestrationEvent,
   getBusinessMaxParallelRuns,
+  getBusinessesWithLeadAgent,
   getLeadAgentIdForBusiness,
   getOrchestrationEventById,
   listPendingOrchestrationEvents,
@@ -123,5 +126,41 @@ export async function pollOnce(): Promise<void> {
         apiKey?.trim() ?? "",
       );
     });
+  }
+}
+
+/** Minimum interval between heartbeats per business (milliseconds). */
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+
+/** Tracks last scheduled heartbeat per businessId. In-process only; resets on restart. */
+const lastHeartbeatScheduled = new Map<string, number>();
+
+/** Clears in-process scheduler throttle (Vitest only). */
+export function resetLeadHeartbeatSchedulerStateForTests(): void {
+  lastHeartbeatScheduled.clear();
+}
+
+/**
+ * For each business that has a lead agent (runsHeartbeat=true),
+ * ensures a pending lead_heartbeat event exists if the interval has elapsed.
+ * Safe to call on every poll tick — idempotent via time check.
+ */
+export async function scheduleLeadHeartbeats(): Promise<void> {
+  const businessesWithLead = await getBusinessesWithLeadAgent();
+
+  for (const { businessId } of businessesWithLead) {
+    const last = lastHeartbeatScheduled.get(businessId);
+    const now = Date.now();
+    if (last !== undefined && now - last < HEARTBEAT_INTERVAL_MS) continue;
+
+    lastHeartbeatScheduled.set(businessId, now);
+    await logEvent({
+      type: "lead_heartbeat",
+      businessId,
+      payload: { trigger: "scheduled", scheduledAt: new Date().toISOString() },
+      status: "pending",
+    });
+
+    runnerLog("runner/poll", `Scheduled lead_heartbeat for business ${businessId}`);
   }
 }

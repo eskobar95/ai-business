@@ -6,6 +6,7 @@ import { getAgentStatus, logAgentLifecycleStatus } from "@/lib/orchestration/eve
 import { taskLogs } from "@/db/schema";
 import { getDb } from "@/db/index";
 import { resolveCursorConfig } from "./cursor-config-resolver";
+import { dispatchLeadHeartbeat } from "./lead-heartbeat";
 import { buildOrchestrationPrompt } from "./prompt-builder";
 import { runGitPreflight } from "./git-preflight";
 import { assertBusinessReadyForExecution } from "./readiness-check";
@@ -79,16 +80,7 @@ export async function dispatchOrchestrationEvent(
   }
 
   if (event.type === "lead_heartbeat") {
-    await finishOrchestrationEvent(eventId, {
-      status: "succeeded",
-      payload: {
-        ...event.payload,
-        runner: {
-          stub: true,
-          note: "lead_heartbeat not yet implemented — S7 will fill this",
-        },
-      },
-    });
+    await dispatchLeadHeartbeat(eventId, event, apiKey);
     return;
   }
 

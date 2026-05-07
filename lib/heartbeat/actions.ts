@@ -2,7 +2,7 @@
 
 import { assertUserOwnsAgent } from "@/lib/agents/actions";
 import { getDb } from "@/db/index";
-import { businesses, orchestrationEvents } from "@/db/schema";
+import { agents, businesses, orchestrationEvents, systemRoles } from "@/db/schema";
 import { getUserCursorApiKeyDecrypted } from "@/lib/settings/cursor-api-key";
 import { Agent } from "@cursor/sdk";
 import { eq } from "drizzle-orm";
@@ -27,6 +27,32 @@ export async function runHeartbeat(agentId: string): Promise<HeartbeatRunResult>
   }
 
   const db = getDb();
+
+  const agentRow = await db.query.agents.findFirst({
+    where: eq(agents.id, agentId),
+    columns: { systemRoleId: true },
+  });
+
+  if (agentRow?.systemRoleId) {
+    const role = await db.query.systemRoles.findFirst({
+      where: eq(systemRoles.id, agentRow.systemRoleId),
+      columns: { runsHeartbeat: true },
+    });
+
+    if (role?.runsHeartbeat === true) {
+      const [eventRow] = await db
+        .insert(orchestrationEvents)
+        .values({
+          businessId,
+          type: "lead_heartbeat",
+          payload: { agentId, trigger: "manual_ui" },
+          status: "pending",
+        })
+        .returning({ id: orchestrationEvents.id });
+      return { success: true, eventId: eventRow?.id ?? "unknown" };
+    }
+  }
+
   const businessRow = await db.query.businesses.findFirst({
     where: eq(businesses.id, businessId),
     columns: { localPath: true },

@@ -19,6 +19,8 @@ vi.mock("./dispatch", () => ({
   dispatchOrchestrationEvent,
 }));
 
+const getBusinessesWithLeadAgent = vi.hoisted(() => vi.fn());
+
 vi.mock("./queries", () => ({
   listPendingOrchestrationEvents,
   getOrchestrationEventById,
@@ -27,6 +29,7 @@ vi.mock("./queries", () => ({
   finishOrchestrationEvent,
   getBusinessMaxParallelRuns,
   getLeadAgentIdForBusiness,
+  getBusinessesWithLeadAgent,
   pickAgentIdOverrideFromOrchestrationPayload,
 }));
 
@@ -42,8 +45,10 @@ describe("runner poll concurrency", () => {
     finishOrchestrationEvent.mockReset();
     getBusinessMaxParallelRuns.mockReset();
     getLeadAgentIdForBusiness.mockReset();
+    getBusinessesWithLeadAgent.mockReset();
     pickAgentIdOverrideFromOrchestrationPayload.mockReset();
 
+    getBusinessesWithLeadAgent.mockResolvedValue([]);
     resolveRunnerCursorApiKey.mockResolvedValue("cursor-key");
     tryClaimOrchestrationEvent.mockResolvedValue({ ok: true });
     getBusinessMaxParallelRuns.mockResolvedValue(null);

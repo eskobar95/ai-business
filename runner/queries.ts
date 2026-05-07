@@ -9,6 +9,7 @@ import {
   orchestrationEvents,
   skillFiles,
   skills,
+  systemRoles,
   teams,
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
@@ -131,6 +132,16 @@ export async function getLeadAgentIdForBusiness(businessId: string): Promise<str
     orderBy: [asc(teams.createdAt)],
   });
   return team?.leadAgentId ?? null;
+}
+
+/** Returns all businessIds that have at least one agent with runsHeartbeat=true. */
+export async function getBusinessesWithLeadAgent(): Promise<{ businessId: string }[]> {
+  const db = getDb();
+  return db
+    .selectDistinct({ businessId: agents.businessId })
+    .from(agents)
+    .innerJoin(systemRoles, eq(agents.systemRoleId, systemRoles.id))
+    .where(eq(systemRoles.runsHeartbeat, true));
 }
 
 export async function getBusinessLocalPath(businessId: string): Promise<string | null> {

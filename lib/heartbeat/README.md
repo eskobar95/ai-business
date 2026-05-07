@@ -7,7 +7,7 @@ Server-side prompt assembly and **`runHeartbeat(agentId)`**, which calls **`@cur
 | File | Role |
 |------|------|
 | `prompt-builder.ts` | `buildHeartbeatPrompt(agentId)` loads agent documents, archetype addendum, recent business memory, tasks, task logs, approvals; `formatHeartbeatPrompt` is the pure formatter used in tests. |
-| `actions.ts` | `runHeartbeat` — auth, API key (via `lib/settings/cursor-api-key.ts`), SDK run, `orchestration_events` row with `type: heartbeat_run`. |
+| `actions.ts` | `runHeartbeat` — auth; **lead agents** (`system_roles.runs_heartbeat`) enqueue `lead_heartbeat` for the runner instead of running SDK in-request; others use API key + SDK + `orchestration_events` row with `type: heartbeat_run`. |
 
 ## Notes
 

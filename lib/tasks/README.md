@@ -8,6 +8,7 @@ Server Actions and helpers for business-scoped **tasks**, **task logs**, and **@
 |------|------|
 | `actions.ts` | `"use server"` — CRUD, `getTaskById`, subtree delete, tree listing, `updateTaskStatus` (backlog→`todo` → promotion + `logEvent` + `maybeAutoTriggerTask`; on `done`, re-evaluates dependent todo tasks for auto-trigger), `promoteTaskToTodo`, dependency updates (**cycle + max-depth walk**), PR link updates, installations list; `createTask` with `status: "todo"` logs `task.promoted_to_todo` with `source: "create_task"` |
 | `promotion-auth.ts` | `assertMayPromoteToTodo` — human vs agent RBAC; policy is DB flags on `system_roles`, not slug allowlists in code |
+| `runner-promote.ts` | `promoteTaskToTodoByRunner` — backlog→`todo` for **local runner** (no session); agent RBAC + `maybeAutoTriggerTask` |
 | `log-actions.ts` | `"use server"` — append log lines and fetch logs; human-authored logs run comment routing (`routeCommentToAgents`) |
 | `mention-trigger.ts` | `extractMentionHandles`, `routeCommentToAgents` — routes comments to assigned worker (no @mention) or to explicitly @mentioned agents; emits `webhook_trigger` (`status: pending`) |
 | `gate-evaluator.ts` | `evaluateTaskGates` — AND gate for dependency done + PR merged to integration (when set) |
