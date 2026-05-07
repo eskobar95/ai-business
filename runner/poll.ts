@@ -1,9 +1,13 @@
+import { logEvent } from "@/lib/orchestration/events";
+
 import { dispatchOrchestrationEvent } from "./dispatch";
-import { runnerLogError } from "./logger";
+import { runnerLog, runnerLogError } from "./logger";
 import {
   finishOrchestrationEvent,
   getBusinessMaxParallelRuns,
+  getBusinessesWithLeadAgent,
   getLeadAgentIdForBusiness,
+  getLeadHeartbeatAgentIdForBusiness,
   getOrchestrationEventById,
   listPendingOrchestrationEvents,
   pickAgentIdOverrideFromOrchestrationPayload,
@@ -14,6 +18,13 @@ import {
 const inFlight = new Set<string>();
 const agentInFlight = new Set<string>();
 const businessInFlight = new Map<string, number>();
+
+/** Clears in-process concurrency bookkeeping (Vitest only). */
+export function resetPollConcurrencyStateForTests(): void {
+  inFlight.clear();
+  agentInFlight.clear();
+  businessInFlight.clear();
+}
 
 function bumpBusinessConcurrent(businessId: string): void {
   businessInFlight.set(businessId, (businessInFlight.get(businessId) ?? 0) + 1);
@@ -43,6 +54,7 @@ export async function pollOnce(): Promise<void> {
   const pending = await listPendingOrchestrationEvents(8);
   /** Dedupe DB reads when several pending rows share the same business in one tick. */
   const leadAgentCache = new Map<string, string | null>();
+  const leadHeartbeatAgentCache = new Map<string, string | null>();
   const maxParallelCache = new Map<string, number | null>();
 
   async function getCachedLeadAgent(businessId: string): Promise<string | null> {
@@ -50,6 +62,16 @@ export async function pollOnce(): Promise<void> {
       leadAgentCache.set(businessId, await getLeadAgentIdForBusiness(businessId));
     }
     return leadAgentCache.get(businessId) ?? null;
+  }
+
+  async function getCachedLeadHeartbeatAgentId(businessId: string): Promise<string | null> {
+    if (!leadHeartbeatAgentCache.has(businessId)) {
+      leadHeartbeatAgentCache.set(
+        businessId,
+        await getLeadHeartbeatAgentIdForBusiness(businessId),
+      );
+    }
+    return leadHeartbeatAgentCache.get(businessId) ?? null;
   }
 
   async function getCachedMaxParallel(businessId: string): Promise<number | null> {
@@ -71,7 +93,12 @@ export async function pollOnce(): Promise<void> {
 
     const agentOverride = pickAgentIdOverrideFromOrchestrationPayload(payload);
     const resolvedAgentId =
-      agentOverride ?? (full.businessId ? await getCachedLeadAgent(full.businessId) : null);
+      agentOverride ??
+      (full.businessId
+        ? full.type === "lead_heartbeat"
+          ? await getCachedLeadHeartbeatAgentId(full.businessId)
+          : await getCachedLeadAgent(full.businessId)
+        : null);
 
     const businessId = full.businessId;
 
@@ -123,5 +150,45 @@ export async function pollOnce(): Promise<void> {
         apiKey?.trim() ?? "",
       );
     });
+  }
+}
+
+/** Minimum interval between heartbeats per business (milliseconds). */
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+
+/** Tracks last scheduled heartbeat per businessId. In-process only; resets on restart. */
+const lastHeartbeatScheduled = new Map<string, number>();
+
+/** Clears in-process scheduler throttle (Vitest only). */
+export function resetLeadHeartbeatSchedulerStateForTests(): void {
+  lastHeartbeatScheduled.clear();
+}
+
+/**
+ * For each business that has a lead agent (runsHeartbeat=true),
+ * ensures a pending lead_heartbeat event exists if the interval has elapsed.
+ * Safe to call on every poll tick — idempotent via time check.
+ */
+export async function scheduleLeadHeartbeats(): Promise<void> {
+  const businessesWithLead = await getBusinessesWithLeadAgent();
+
+  for (const { businessId } of businessesWithLead) {
+    const last = lastHeartbeatScheduled.get(businessId);
+    const now = Date.now();
+    if (last !== undefined && now - last < HEARTBEAT_INTERVAL_MS) continue;
+
+    try {
+      await logEvent({
+        type: "lead_heartbeat",
+        businessId,
+        payload: { trigger: "scheduled", scheduledAt: new Date(now).toISOString() },
+        status: "pending",
+      });
+      lastHeartbeatScheduled.set(businessId, now);
+      runnerLog("runner/poll", `Scheduled lead_heartbeat for business ${businessId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      runnerLogError("runner/poll", `Failed to schedule lead_heartbeat for ${businessId}:`, msg);
+    }
   }
 }

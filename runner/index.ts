@@ -3,12 +3,13 @@ import { loadRunnerEnv } from "./bootstrap-env";
 loadRunnerEnv();
 
 import { runnerLogError, runnerLogInfo } from "./logger";
-import { pollOnce } from "./poll";
+import { pollOnce, scheduleLeadHeartbeats } from "./poll";
 
 const INTERVAL_MS = 10_000;
 
 async function tick() {
   try {
+    await scheduleLeadHeartbeats();
     await pollOnce();
   } catch (e) {
     runnerLogError("runner", "poll error:", e instanceof Error ? e.message : e);

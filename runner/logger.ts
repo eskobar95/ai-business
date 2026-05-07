@@ -8,6 +8,11 @@ export function runnerLogInfo(...args: unknown[]): void {
   console.info(...args);
 }
 
+/** Alias for info-level operator logs with a scope prefix (matches `runnerLogError` shape). */
+export function runnerLog(scope: string, ...args: unknown[]): void {
+  console.info(`[${scope}]`, ...args);
+}
+
 export function runnerLogError(scope: string, ...args: unknown[]): void {
   console.error(`[${scope}]`, ...args);
 }

@@ -35,10 +35,10 @@ npm run dev:full      # Next.js + runner (concurrently)
 
 ## Git workspace + concurrency (S5)
 
-- **Polling** skips work when the inferred **`agentId` is already in-flight**, and honours **`businesses.max_parallel_runs`** when `> 0` (`null`/≤0 ⇒ no cap).
+- **Polling** skips work when the inferred **`agentId` is already in-flight**, and honours **`businesses.max_parallel_runs`** when `> 0` (`null`/≤0 ⇒ no cap). Vitest suites should call **`resetPollConcurrencyStateForTests()`** when a case mocks `dispatchOrchestrationEvent` with a never-settling promise, so per-tick `inFlight` state does not leak.
 - **`requires_git_workspace` on system roles**: when true, the runner runs **`runner/git-preflight.ts`** (fetch, clean-tree check, checkout `integration_branch`, ff-only pull) before the Cursor sandbox; failures become `runnerError` on the event.
 - **Non-git agents** (`requires_git_workspace = false`) use `cwd = localPath` and skip git orchestration.
-- **`lead_heartbeat` events** are acknowledged as **stub** successes (no Cursor run, no memory/localPath gate) until **S7** implements the real heartbeat flow — so they do not block the queue.
+- **`lead_heartbeat` events** — dispatched by **`runner/lead-heartbeat.ts`**: agent with `runs_heartbeat` (stable pick: `agents.created_at`, then `id`, see **`getLeadHeartbeatAgentForBusiness`** in `queries.ts`) runs Cursor SDK on a backlog→todo promotion prompt. **`runner/poll.ts`** uses **`getLeadHeartbeatAgentIdForBusiness`** (not team lead) for in-flight / cap resolution on these events. **`scheduleLeadHeartbeats()`** runs every 5 minutes per business (in-process throttle) before **`pollOnce()`**. Workspace Cursor key is not required for the poll claim path (`skipApiKey`); **`CURSOR_API_KEY`** is used when creating the agent. Streamed assistant text extraction is shared with **`dispatch.ts`** via **`runner/sdk-assistant-text.ts`**; finished events may include **`runner.assistantOutput`** (truncated) for debugging.
 
 ## Engineer / integration branch
 
