@@ -49,7 +49,10 @@ export async function runHeartbeat(agentId: string): Promise<HeartbeatRunResult>
           status: "pending",
         })
         .returning({ id: orchestrationEvents.id });
-      return { success: true, eventId: eventRow?.id ?? "unknown" };
+      if (!eventRow?.id) {
+        return { success: false, error: "Failed to enqueue lead_heartbeat orchestration event." };
+      }
+      return { success: true, eventId: eventRow.id };
     }
   }
 

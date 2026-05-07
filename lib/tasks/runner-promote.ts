@@ -1,7 +1,7 @@
 import { getDb } from "@/db/index";
 import { tasks } from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { assertMayPromoteToTodo } from "./promotion-auth";
 import { maybeAutoTriggerTask } from "./auto-trigger";
@@ -23,7 +23,7 @@ export async function promoteTaskToTodoByRunner(
 
   await assertMayPromoteToTodo(taskId, promotingAgentId, "agent");
 
-  await db
+  const updated = await db
     .update(tasks)
     .set({
       status: "todo",
@@ -31,7 +31,10 @@ export async function promoteTaskToTodoByRunner(
       approvalId: null,
       updatedAt: new Date(),
     })
-    .where(eq(tasks.id, taskId));
+    .where(and(eq(tasks.id, taskId), eq(tasks.status, "backlog")))
+    .returning({ id: tasks.id });
+
+  if (updated.length === 0) return;
 
   await logEvent({
     type: "task.promoted_to_todo",

@@ -12,6 +12,8 @@ export interface LeadHeartbeatPromptInput {
     title: string;
     description: string | null;
     dependencyTaskId: string | null;
+    /** True when a dependency row exists and is not `done` (matches `evaluateTaskGates`). */
+    dependencyBlocksPromotion: boolean;
     githubPrNumber: number | null;
     prMergedToIntegration: boolean;
     agentId: string | null;
@@ -43,7 +45,9 @@ export async function buildLeadHeartbeatPrompt(input: LeadHeartbeatPromptInput):
   const taskLines = input.backlogTasks
     .map((t) => {
       const gates: string[] = [];
-      if (t.dependencyTaskId) gates.push(`depends on task ${t.dependencyTaskId}`);
+      if (t.dependencyTaskId && t.dependencyBlocksPromotion) {
+        gates.push(`depends on task ${t.dependencyTaskId}`);
+      }
       if (t.githubPrNumber && !t.prMergedToIntegration) {
         gates.push(`PR #${t.githubPrNumber} not merged`);
       }

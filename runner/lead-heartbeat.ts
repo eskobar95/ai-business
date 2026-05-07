@@ -5,7 +5,7 @@ import { promoteTaskToTodoByRunner } from "@/lib/tasks/runner-promote";
 import { evaluateTaskGates } from "@/lib/tasks/gate-evaluator";
 import { getDb } from "@/db/index";
 import { tasks } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { buildLeadHeartbeatPrompt } from "./lead-heartbeat-prompt";
 import { assertBusinessReadyForExecution } from "./readiness-check";
@@ -62,12 +62,13 @@ async function getPromotableCandidates(
     title: string;
     description: string | null;
     dependencyTaskId: string | null;
+    dependencyBlocksPromotion: boolean;
     githubPrNumber: number | null;
     prMergedToIntegration: boolean;
     agentId: string | null;
   }>
 > {
-  return db.query.tasks.findMany({
+  const rows = await db.query.tasks.findMany({
     where: and(eq(tasks.businessId, businessId), eq(tasks.status, "backlog")),
     columns: {
       id: true,
@@ -78,6 +79,25 @@ async function getPromotableCandidates(
       prMergedToIntegration: true,
       agentId: true,
     },
+  });
+
+  const depIds = [...new Set(rows.map((r) => r.dependencyTaskId).filter(Boolean) as string[])];
+  const depRows =
+    depIds.length === 0
+      ? []
+      : await db.query.tasks.findMany({
+          where: inArray(tasks.id, depIds),
+          columns: { id: true, status: true },
+        });
+  const depStatus = new Map(depRows.map((d) => [d.id, d.status]));
+
+  return rows.map((r) => {
+    const depBlocks =
+      r.dependencyTaskId != null && depStatus.get(r.dependencyTaskId) !== "done";
+    return {
+      ...r,
+      dependencyBlocksPromotion: depBlocks,
+    };
   });
 }
 

@@ -177,14 +177,18 @@ export async function scheduleLeadHeartbeats(): Promise<void> {
     const now = Date.now();
     if (last !== undefined && now - last < HEARTBEAT_INTERVAL_MS) continue;
 
-    lastHeartbeatScheduled.set(businessId, now);
-    await logEvent({
-      type: "lead_heartbeat",
-      businessId,
-      payload: { trigger: "scheduled", scheduledAt: new Date().toISOString() },
-      status: "pending",
-    });
-
-    runnerLog("runner/poll", `Scheduled lead_heartbeat for business ${businessId}`);
+    try {
+      await logEvent({
+        type: "lead_heartbeat",
+        businessId,
+        payload: { trigger: "scheduled", scheduledAt: new Date(now).toISOString() },
+        status: "pending",
+      });
+      lastHeartbeatScheduled.set(businessId, now);
+      runnerLog("runner/poll", `Scheduled lead_heartbeat for business ${businessId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      runnerLogError("runner/poll", `Failed to schedule lead_heartbeat for ${businessId}:`, msg);
+    }
   }
 }

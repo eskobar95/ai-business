@@ -22,6 +22,7 @@ const baseTask = {
   title: "Example",
   description: null as string | null,
   dependencyTaskId: null as string | null,
+  dependencyBlocksPromotion: false,
   githubPrNumber: null as number | null,
   prMergedToIntegration: false,
   agentId: null as string | null,
@@ -44,10 +45,21 @@ describe("buildLeadHeartbeatPrompt", () => {
     const out = await buildLeadHeartbeatPrompt({
       agentId: "agent-1",
       businessId: "biz-1",
-      backlogTasks: [{ ...baseTask, dependencyTaskId: depId }],
+      backlogTasks: [{ ...baseTask, dependencyTaskId: depId, dependencyBlocksPromotion: true }],
     });
     expect(out).toContain("[BLOCKED:");
     expect(out).toContain(`depends on task ${depId}`);
+  });
+
+  it("does not mark dependency as BLOCKED when dependency is satisfied (done)", async () => {
+    const depId = "task-dep11111-1111-4111-8111-111111111111";
+    const out = await buildLeadHeartbeatPrompt({
+      agentId: "agent-1",
+      businessId: "biz-1",
+      backlogTasks: [{ ...baseTask, dependencyTaskId: depId, dependencyBlocksPromotion: false }],
+    });
+    expect(out).toContain("[READY]");
+    expect(out).not.toContain(`depends on task ${depId}`);
   });
 
   it("marks tasks with unmerged PRs as BLOCKED", async () => {
