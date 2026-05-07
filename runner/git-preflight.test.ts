@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- execFileSync has complex overload signatures in tests */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+function writableRepoFixture(): string {
+  return mkdtempSync(join(tmpdir(), "git-preflight-repo-"));
+}
 
 const execSpy = vi.hoisted(
   (): ReturnType<typeof vi.fn> => vi.fn(() => "") as any,
@@ -90,18 +98,23 @@ describe("runner git preflight", () => {
   });
 
   it("logs PR worktree creation when PR branch + key are provided", async () => {
-    const res = await runGitPreflight({
-      localPath: "/repo",
-      integrationBranch: "main",
-      prBranch: "feature/test",
-      worktreeKey: "task-123",
-      businessId: "biz-1",
-      eventId: "evt-4",
-    });
+    const repoRoot = writableRepoFixture();
+    try {
+      const res = await runGitPreflight({
+        localPath: repoRoot,
+        integrationBranch: "main",
+        prBranch: "feature/test",
+        worktreeKey: "task-123",
+        businessId: "biz-1",
+        eventId: "evt-4",
+      });
 
-    expect(res.cwd.includes(".worktrees")).toBe(true);
+      expect(res.cwd.includes(".worktrees")).toBe(true);
 
-    const steps = mapLogSteps(logEvent);
-    expect(steps.includes("pr_worktree")).toBe(true);
+      const steps = mapLogSteps(logEvent);
+      expect(steps.includes("pr_worktree")).toBe(true);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });
