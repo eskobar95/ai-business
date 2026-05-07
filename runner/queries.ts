@@ -68,6 +68,61 @@ export async function getOrchestrationEventById(id: string) {
   });
 }
 
+export function pickAgentIdOverrideFromOrchestrationPayload(
+  payload: Record<string, unknown>,
+): string | undefined {
+  if (typeof payload.agentId === "string" && payload.agentId.trim()) return payload.agentId.trim();
+  const body = payload.body;
+  if (body && typeof body === "object" && body !== null) {
+    const b = body as Record<string, unknown>;
+    if (typeof b.agentId === "string" && b.agentId.trim()) return b.agentId.trim();
+    if (typeof b.agent_id === "string" && b.agent_id.trim()) return b.agent_id.trim();
+  }
+  return undefined;
+}
+
+/** Resolves runner target agent before dispatch (lead agent fallback). */
+export async function resolveAgentIdForEvent(eventId: string): Promise<string | null> {
+  const evt = await getOrchestrationEventById(eventId);
+  if (!evt?.businessId) return null;
+
+  const raw = evt.payload;
+  const payload =
+    raw && typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const agentOverride = pickAgentIdOverrideFromOrchestrationPayload(payload);
+  if (agentOverride) return agentOverride;
+  return await getLeadAgentIdForBusiness(evt.businessId);
+}
+
+/** Returns `businesses.max_parallel_runs` — `null` means unlimited. */
+export async function getBusinessMaxParallelRuns(
+  businessId: string | null,
+): Promise<number | null> {
+  if (!businessId) return null;
+  const db = getDb();
+  const row = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { maxParallelRuns: true },
+  });
+  const n = row?.maxParallelRuns;
+  return typeof n === "number" && Number.isFinite(n) ? n : null;
+}
+
+export async function getBusinessIntegrationBranch(businessId: string): Promise<string | null> {
+  const db = getDb();
+  const row = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { integrationBranch: true },
+  });
+  const b = row?.integrationBranch?.trim();
+  return b && b.length > 0 ? b : null;
+}
+
+/** Reserved for PR-branch linkage (S7+). Returns `undefined` in v1. */
+export async function getTaskPrBranch(_taskId: string): Promise<string | undefined> {
+  return undefined;
+}
+
 export async function getLeadAgentIdForBusiness(businessId: string): Promise<string | null> {
   const db = getDb();
   const team = await db.query.teams.findFirst({
@@ -126,6 +181,7 @@ export async function loadAgentForRun(agentId: string) {
           slug: true,
           baseSystemPrompt: true,
           includeBusinessContext: true,
+          requiresGitWorkspace: true,
         },
       },
       documents: {

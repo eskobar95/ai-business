@@ -1,23 +1,30 @@
 import { Agent } from "@cursor/sdk";
 import type { SDKAssistantMessage } from "@cursor/sdk";
+import { resolve as pathResolve } from "node:path";
 
 import { getAgentStatus, logAgentLifecycleStatus } from "@/lib/orchestration/events";
 import { taskLogs } from "@/db/schema";
 import { getDb } from "@/db/index";
+import { resolveCursorConfig } from "./cursor-config-resolver";
 import { buildOrchestrationPrompt } from "./prompt-builder";
-import { prepareWorkingDirectory } from "./worktree";
+import { runGitPreflight } from "./git-preflight";
+import { assertBusinessReadyForExecution } from "./readiness-check";
 import {
   finishOrchestrationEvent,
+  getBusinessIntegrationBranch,
   getBusinessLocalPath,
   getLatestBusinessMemoryContent,
+  getLeadAgentIdForBusiness,
+  getTaskPrBranch,
   loadAgentForRun,
   loadAgentSkillsContext,
-  requireBusinessMemoryExists,
-  getLeadAgentIdForBusiness,
+  pickAgentIdOverrideFromOrchestrationPayload,
 } from "./queries";
 
-const MODEL_ID = "composer-2";
+const PLATFORM_FALLBACK_MODEL = "composer-2";
 const MAX_OUTPUT_CHARS = 60_000;
+
+const SUPPORTED_EVENT_TYPES = new Set(["webhook_trigger", "mention_trigger", "lead_heartbeat"]);
 
 function pickTaskId(payload: Record<string, unknown>): string | undefined {
   if (typeof payload.taskId === "string" && payload.taskId.trim()) return payload.taskId.trim();
@@ -30,13 +37,14 @@ function pickTaskId(payload: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function pickAgentIdOverride(payload: Record<string, unknown>): string | undefined {
-  if (typeof payload.agentId === "string" && payload.agentId.trim()) return payload.agentId.trim();
-  const body = payload.body;
-  if (body && typeof body === "object" && body !== null) {
-    const b = body as Record<string, unknown>;
-    if (typeof b.agentId === "string" && b.agentId.trim()) return b.agentId.trim();
-    if (typeof b.agent_id === "string" && b.agent_id.trim()) return b.agent_id.trim();
+function pickMentionExcerpt(payload: Record<string, unknown>): string | undefined {
+  if (typeof payload.excerpt === "string") {
+    const e = payload.excerpt.trim();
+    return e.length > 0 ? e : undefined;
+  }
+  if (typeof payload.mentionExcerpt === "string") {
+    const e = payload.mentionExcerpt.trim();
+    return e.length > 0 ? e : undefined;
   }
   return undefined;
 }
@@ -59,7 +67,7 @@ export async function dispatchOrchestrationEvent(
     return;
   }
 
-  if (event.type !== "webhook_trigger") {
+  if (!SUPPORTED_EVENT_TYPES.has(event.type)) {
     await finishOrchestrationEvent(eventId, {
       status: "failed",
       payload: {
@@ -70,28 +78,33 @@ export async function dispatchOrchestrationEvent(
     return;
   }
 
-  const hasMemory = await requireBusinessMemoryExists(businessId);
-  if (!hasMemory) {
+  if (event.type === "lead_heartbeat") {
     await finishOrchestrationEvent(eventId, {
-      status: "failed",
+      status: "succeeded",
       payload: {
         ...event.payload,
-        runnerError: "Business has no business-scope memory. Complete Grill-Me onboarding first.",
+        runner: {
+          stub: true,
+          note: "lead_heartbeat not yet implemented — S7 will fill this",
+        },
       },
     });
     return;
   }
 
   const localPath = await getBusinessLocalPath(businessId);
-  if (!localPath) {
+  try {
+    await assertBusinessReadyForExecution(businessId, localPath);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     await finishOrchestrationEvent(eventId, {
       status: "failed",
-      payload: { ...event.payload, runnerError: "Business localPath is not set in Settings." },
+      payload: { ...event.payload, runnerError: message },
     });
     return;
   }
 
-  const agentIdOverride = pickAgentIdOverride(event.payload);
+  const agentIdOverride = pickAgentIdOverrideFromOrchestrationPayload(event.payload);
   const agentId = agentIdOverride ?? (await getLeadAgentIdForBusiness(businessId));
   if (!agentId) {
     await finishOrchestrationEvent(eventId, {
@@ -139,7 +152,11 @@ export async function dispatchOrchestrationEvent(
   const instructions = agent.documents[0]?.content ?? "";
   const memoryMd = await getLatestBusinessMemoryContent(businessId);
   const skillsBlock = await loadAgentSkillsContext(agentId);
+  const mentionExcerpt =
+    event.type === "mention_trigger" ? pickMentionExcerpt(event.payload) : undefined;
+
   const prompt = buildOrchestrationPrompt({
+    mentionExcerpt,
     systemRoleBasePrompt: agent.systemRole.baseSystemPrompt,
     includeBusinessMemory: agent.systemRole.includeBusinessContext,
     businessMemoryMarkdown: memoryMd,
@@ -149,20 +166,58 @@ export async function dispatchOrchestrationEvent(
   });
 
   const taskId = pickTaskId(event.payload);
-  const isEngineer = agent.systemRole.slug === "engineer";
-  const { cwd, cleanup } = prepareWorkingDirectory({
-    localPathAbs: localPath,
-    useWorktree: isEngineer,
-    worktreeKey: taskId ?? eventId,
-  });
+  const rootAbs = pathResolve(localPath!.trim());
+
+  let cwd: string;
+  let cleanup: () => void;
+
+  if (agent.systemRole.requiresGitWorkspace) {
+    const integrationBranch = await getBusinessIntegrationBranch(businessId);
+    if (!integrationBranch) {
+      await finishOrchestrationEvent(eventId, {
+        status: "failed",
+        payload: {
+          ...event.payload,
+          runnerError: "integrationBranch not set in workspace settings.",
+        },
+      });
+      return;
+    }
+    const prBranch = taskId ? await getTaskPrBranch(taskId) : undefined;
+    try {
+      ({ cwd, cleanup } = await runGitPreflight({
+        localPath: rootAbs,
+        integrationBranch,
+        prBranch,
+        worktreeKey: taskId ?? eventId,
+        businessId,
+        eventId,
+      }));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      await finishOrchestrationEvent(eventId, {
+        status: "failed",
+        payload: { ...event.payload, runnerError: message },
+      });
+      return;
+    }
+  } else {
+    cwd = rootAbs;
+    cleanup = () => undefined;
+  }
+
+  const cursorConfig = await resolveCursorConfig(agentId, businessId);
 
   let agentSdk: Awaited<ReturnType<typeof Agent.create>> | null = null;
   const started = Date.now();
   try {
     await logAgentLifecycleStatus(businessId, agentId, "working", { source: "runner", eventId });
+    // `cursorConfig.thinkingEffort` is stored on the finished event for observability.
+    // `@cursor/sdk` Agent.create typing in this version only exposes `model` + `local` here; if the SDK
+    // adds a first-class effort/extended-thinking field, wire it alongside `model`.
     agentSdk = await Agent.create({
       apiKey: apiKey.trim(),
-      model: { id: MODEL_ID },
+      ...(cursorConfig.modelId ? { model: { id: cursorConfig.modelId } } : {}),
       local: { cwd },
     });
     const run = await agentSdk.send(prompt);
@@ -214,13 +269,17 @@ export async function dispatchOrchestrationEvent(
         ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n\n…(truncated)`
         : text;
 
+    const resolvedModelLabel =
+      result.model?.id ?? cursorConfig.modelId ?? PLATFORM_FALLBACK_MODEL;
+
     const nextPayload: Record<string, unknown> = {
       ...event.payload,
       runner: {
         agentId,
         agentName: agent.name,
         systemRoleSlug: agent.systemRole.slug,
-        model: result.model?.id ?? MODEL_ID,
+        model: resolvedModelLabel,
+        cursorThinkingEffort: cursorConfig.thinkingEffort ?? null,
         durationMs,
         tokensIn,
         tokensOut,

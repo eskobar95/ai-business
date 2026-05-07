@@ -33,6 +33,13 @@ npm run dev:full      # Next.js + runner (concurrently)
 - **`runner/queue/`** — `agent_jobs` fair-share queue + quota warn-only checker (`communication_edges`).
 - **`runner/litellm/`** — LiteLLM config template + `buildLiteLLMHeaders` for correlation headers.
 
-## Engineer isolation
+## Git workspace + concurrency (S5)
 
-Agents with system role slug `engineer` run in a `git worktree` under `<localPath>/.worktrees/<taskId-or-eventId>`. The repo must be clean (`git status`) before the worktree is created.
+- **Polling** skips work when the inferred **`agentId` is already in-flight**, and honours **`businesses.max_parallel_runs`** when `> 0` (`null`/≤0 ⇒ no cap).
+- **`requires_git_workspace` on system roles**: when true, the runner runs **`runner/git-preflight.ts`** (fetch, clean-tree check, checkout `integration_branch`, ff-only pull) before the Cursor sandbox; failures become `runnerError` on the event.
+- **Non-git agents** (`requires_git_workspace = false`) use `cwd = localPath` and skip git orchestration.
+- **`lead_heartbeat` events** are acknowledged as **stub** successes (no Cursor run, no memory/localPath gate) until **S7** implements the real heartbeat flow — so they do not block the queue.
+
+## Engineer / integration branch
+
+Git-workspace roles use **`integration_branch`** in workspace settings; optional PR-branch worktrees may apply when `getTaskPrBranch` is implemented. Isolation is driven by **`requires_git_workspace`**, not by hardcoded role slug.
