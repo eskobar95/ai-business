@@ -32,16 +32,36 @@ function excerptAroundMention(content: string, handle: string): string {
 }
 
 /**
- * For each @agentName in `logContent`, find agents in `businessId` with a case-insensitive name match
- * and insert `orchestration_events` rows (`type: mention_trigger`).
+ * Routes a human comment to the correct agent(s) via webhook_trigger events.
+ *
+ * Rules:
+ * - No @mentions + task has assignedAgentId → trigger assigned agent
+ * - @mentions present → trigger all matched agents (may include assigned agent if mentioned)
+ * - No mentions + no assigned agent → no-op
  */
-export async function parseAndTriggerMentions(
+export async function routeCommentToAgents(
   taskId: string,
   logContent: string,
   businessId: string,
+  assignedAgentId: string | null,
 ): Promise<void> {
   const handles = extractMentionHandles(logContent);
-  if (handles.length === 0) return;
+
+  if (handles.length === 0) {
+    if (!assignedAgentId) return;
+    await logEvent({
+      type: "webhook_trigger",
+      businessId,
+      payload: {
+        agentId: assignedAgentId,
+        taskId,
+        trigger: "comment_no_mention",
+        excerpt: logContent.slice(0, 200),
+      },
+      status: "pending",
+    });
+    return;
+  }
 
   const db = getDb();
   const notified = new Set<string>();
@@ -59,12 +79,13 @@ export async function parseAndTriggerMentions(
       if (notified.has(agent.id)) continue;
       notified.add(agent.id);
       await logEvent({
-        type: "mention_trigger",
+        type: "webhook_trigger",
         businessId,
         payload: {
           agentId: agent.id,
           taskId,
-          trigger: "mention",
+          trigger: "comment_mention",
+          mentionedHandle: handle,
           excerpt: excerptAroundMention(logContent, handle),
         },
         status: "pending",

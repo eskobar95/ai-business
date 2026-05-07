@@ -30,6 +30,10 @@ bash:
 ALLOW_APP_DATA_RESET=1 npm run db:reset-app-data
 ```
 
+## `cleanup-mention-triggers.ts`
+
+**One-off after S6 deploy.** Marks pending `orchestration_events` rows with `type: mention_trigger` as `failed` (migrated to `webhook_trigger`). Run: `npm run db:cleanup-mention-triggers` (requires DB env vars like other app scripts).
+
 ## `recover-apm-phase2-from-transcript.mjs`
 
 One-off / repeat use: genskaber **`.apm/spec.md`**, **`.apm/plan.md`**, **Stage 1 Task Bus** (`task.md`), **`.apm/memory/index.md`** (overskrives — kør evt. efterfølgende manuel sync), samt **Task 1.1 / 1.2 Worker handoffs** til **`.apm/memory/handoffs/worker-recovered/`** fra Cursor **agent transcripts** under `%USERPROFILE%\.cursor\projects\c-Users-Nicklas-Github-ai-business\agent-transcripts\`.

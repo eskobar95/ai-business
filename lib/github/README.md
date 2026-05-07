@@ -14,7 +14,7 @@ Server-only modules — **never** import secrets or `getInstallationToken()` fro
 | `installation-queries.ts` | Safe read for Settings (no tokens). |
 | `actions.ts` | `disconnectGithubInstallation` — revokes current token via GitHub `DELETE /installation/token` (throws from `rest.ts` on non-404 errors; caller logs `console.warn` but still deletes the DB row). |
 | `get-github-installed.ts` | Returns whether GitHub is connected for a business (used by dashboard banner). |
-| `pr-webhook-handler.ts` | Maps `pull_request` actions → `tasks.github_pr_status`; sets `pr_merged_to_integration` when merged into `businesses.integration_branch`; emits `github.pr.merged` orchestration event. Repo match uses `installation.id` first, then **`repos` JSONB `@>`** containment (no full-table scan). |
+| `pr-webhook-handler.ts` | Maps `pull_request` actions → `tasks.github_pr_status`; sets `pr_merged_to_integration` when merged into `businesses.integration_branch`; calls `maybeAutoTriggerTask` per affected task (auto-start idempotency uses `gates_locked_at`); emits `github.pr.merged` orchestration event. Repo match uses `installation.id` first, then **`repos` JSONB `@>`** containment (no full-table scan). |
 
 ## Routes
 

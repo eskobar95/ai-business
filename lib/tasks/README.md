@@ -6,10 +6,12 @@ Server Actions and helpers for business-scoped **tasks**, **task logs**, and **@
 
 | File | Role |
 |------|------|
-| `actions.ts` | `"use server"` — CRUD, `getTaskById`, subtree delete, tree listing, `updateTaskStatus` (backlog→`todo` → promotion + `logEvent`; preloads task row to avoid double fetch), `promoteTaskToTodo`, dependency updates (**cycle + max-depth walk**), PR link updates, installations list; `createTask` with `status: "todo"` logs `task.promoted_to_todo` with `source: "create_task"` |
+| `actions.ts` | `"use server"` — CRUD, `getTaskById`, subtree delete, tree listing, `updateTaskStatus` (backlog→`todo` → promotion + `logEvent` + `maybeAutoTriggerTask`; on `done`, re-evaluates dependent todo tasks for auto-trigger), `promoteTaskToTodo`, dependency updates (**cycle + max-depth walk**), PR link updates, installations list; `createTask` with `status: "todo"` logs `task.promoted_to_todo` with `source: "create_task"` |
 | `promotion-auth.ts` | `assertMayPromoteToTodo` — human vs agent RBAC; policy is DB flags on `system_roles`, not slug allowlists in code |
-| `log-actions.ts` | `"use server"` — append log lines and fetch logs; human-authored logs trigger mention parsing |
-| `mention-trigger.ts` | Scans log text for `@Name`, matches agents in the same business (case-insensitive), emits `orchestration_events` with `type: mention_trigger` (`status: pending`) |
+| `log-actions.ts` | `"use server"` — append log lines and fetch logs; human-authored logs run comment routing (`routeCommentToAgents`) |
+| `mention-trigger.ts` | `extractMentionHandles`, `routeCommentToAgents` — routes comments to assigned worker (no @mention) or to explicitly @mentioned agents; emits `webhook_trigger` (`status: pending`) |
+| `gate-evaluator.ts` | `evaluateTaskGates` — AND gate for dependency done + PR merged to integration (when set) |
+| `auto-trigger.ts` | `maybeAutoTriggerTask` — todo tasks: when gates pass, sets `gatesLockedAt` (idempotency) and emits `webhook_trigger` with `trigger: "auto_todo"` |
 | `task-tree.ts` | Types: `TaskRow`, `TaskStatus`, `TaskTreeNode`. Pure helpers: subtree collection and safe delete ordering (children before parents) |
 | `flatten-task-tree.ts` | Pure `flattenTaskTree` for kanban listings (depth-first over `TaskTreeNode[]`) |
 | `dashboard-queries.ts` | Signed-in user's per-business task counts (in progress, blocked) for dashboard cards |
