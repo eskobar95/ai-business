@@ -4,33 +4,22 @@ import type { SDKAssistantMessage } from "@cursor/sdk";
 import { promoteTaskToTodoByRunner } from "@/lib/tasks/runner-promote";
 import { evaluateTaskGates } from "@/lib/tasks/gate-evaluator";
 import { getDb } from "@/db/index";
-import { agents, systemRoles, tasks } from "@/db/schema";
+import { tasks } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { buildLeadHeartbeatPrompt } from "./lead-heartbeat-prompt";
 import { assertBusinessReadyForExecution } from "./readiness-check";
 import { resolveCursorConfig } from "./cursor-config-resolver";
-import { finishOrchestrationEvent, getBusinessLocalPath } from "./queries";
+import {
+  finishOrchestrationEvent,
+  getBusinessLocalPath,
+  getLeadHeartbeatAgentForBusiness,
+} from "./queries";
 import { runnerLog, runnerLogError } from "./logger";
-
-function appendAssistantTextFromMessage(text: string, msg: SDKAssistantMessage): string {
-  const parts = msg.message?.content;
-  if (!Array.isArray(parts)) return text;
-  let out = text;
-  for (const block of parts) {
-    if (
-      typeof block === "object" &&
-      block !== null &&
-      "type" in block &&
-      block.type === "text" &&
-      "text" in block &&
-      typeof (block as { text: unknown }).text === "string"
-    ) {
-      out += (block as { text: string }).text;
-    }
-  }
-  return out;
-}
+import {
+  appendAssistantTextFromAssistantMessage,
+  truncateAssistantTextForPayload,
+} from "./sdk-assistant-text";
 
 /**
  * Parses lead-agent output for a JSON list of task IDs to promote.
@@ -62,29 +51,6 @@ export function parseLeadOutput(fullText: string): string[] {
   } catch {
     return [];
   }
-}
-
-async function findLeadAgentForBusiness(
-  businessId: string,
-  db: ReturnType<typeof getDb>,
-): Promise<{ id: string; name: string; heartbeatPromotionCap: number } | null> {
-  const result = await db
-    .select({
-      id: agents.id,
-      name: agents.name,
-      heartbeatPromotionCap: agents.heartbeatPromotionCap,
-    })
-    .from(agents)
-    .innerJoin(systemRoles, eq(agents.systemRoleId, systemRoles.id))
-    .where(and(eq(agents.businessId, businessId), eq(systemRoles.runsHeartbeat, true)))
-    .limit(1);
-  const row = result[0];
-  if (!row) return null;
-  return {
-    id: row.id,
-    name: row.name,
-    heartbeatPromotionCap: row.heartbeatPromotionCap,
-  };
 }
 
 async function getPromotableCandidates(
@@ -143,7 +109,7 @@ export async function dispatchLeadHeartbeat(
 
   const db = getDb();
 
-  const leadAgent = await findLeadAgentForBusiness(businessId, db);
+  const leadAgent = await getLeadHeartbeatAgentForBusiness(businessId);
   if (!leadAgent) {
     await finishOrchestrationEvent(eventId, {
       status: "failed",
@@ -167,6 +133,7 @@ export async function dispatchLeadHeartbeat(
 
   const root = localPath!.trim();
   let agentSdk: import("@cursor/sdk").SDKAgent | null = null;
+  let fullText = "";
 
   try {
     agentSdk = await Agent.create({
@@ -176,7 +143,6 @@ export async function dispatchLeadHeartbeat(
     });
 
     const run = await agentSdk.send(prompt);
-    let fullText = "";
 
     for await (const msg of run.stream()) {
       if (
@@ -186,7 +152,7 @@ export async function dispatchLeadHeartbeat(
       ) {
         continue;
       }
-      fullText = appendAssistantTextFromMessage(fullText, msg as SDKAssistantMessage);
+      fullText = appendAssistantTextFromAssistantMessage(fullText, msg as SDKAssistantMessage);
     }
 
     await run.wait();
@@ -240,6 +206,9 @@ export async function dispatchLeadHeartbeat(
         promotionsCapped: toPromote.length,
         promoted,
         errors,
+        runner: {
+          assistantOutput: truncateAssistantTextForPayload(fullText),
+        },
       },
     });
   } catch (e) {
@@ -247,7 +216,13 @@ export async function dispatchLeadHeartbeat(
     runnerLogError("runner/lead-heartbeat", "Lead heartbeat failed:", message);
     await finishOrchestrationEvent(eventId, {
       status: "failed",
-      payload: { ...event.payload, runnerError: message },
+      payload: {
+        ...event.payload,
+        runnerError: message,
+        ...(fullText.length > 0
+          ? { runner: { assistantOutput: truncateAssistantTextForPayload(fullText) } }
+          : {}),
+      },
     });
   } finally {
     if (agentSdk) {

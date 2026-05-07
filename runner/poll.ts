@@ -7,6 +7,7 @@ import {
   getBusinessMaxParallelRuns,
   getBusinessesWithLeadAgent,
   getLeadAgentIdForBusiness,
+  getLeadHeartbeatAgentIdForBusiness,
   getOrchestrationEventById,
   listPendingOrchestrationEvents,
   pickAgentIdOverrideFromOrchestrationPayload,
@@ -17,6 +18,13 @@ import {
 const inFlight = new Set<string>();
 const agentInFlight = new Set<string>();
 const businessInFlight = new Map<string, number>();
+
+/** Clears in-process concurrency bookkeeping (Vitest only). */
+export function resetPollConcurrencyStateForTests(): void {
+  inFlight.clear();
+  agentInFlight.clear();
+  businessInFlight.clear();
+}
 
 function bumpBusinessConcurrent(businessId: string): void {
   businessInFlight.set(businessId, (businessInFlight.get(businessId) ?? 0) + 1);
@@ -46,6 +54,7 @@ export async function pollOnce(): Promise<void> {
   const pending = await listPendingOrchestrationEvents(8);
   /** Dedupe DB reads when several pending rows share the same business in one tick. */
   const leadAgentCache = new Map<string, string | null>();
+  const leadHeartbeatAgentCache = new Map<string, string | null>();
   const maxParallelCache = new Map<string, number | null>();
 
   async function getCachedLeadAgent(businessId: string): Promise<string | null> {
@@ -53,6 +62,16 @@ export async function pollOnce(): Promise<void> {
       leadAgentCache.set(businessId, await getLeadAgentIdForBusiness(businessId));
     }
     return leadAgentCache.get(businessId) ?? null;
+  }
+
+  async function getCachedLeadHeartbeatAgentId(businessId: string): Promise<string | null> {
+    if (!leadHeartbeatAgentCache.has(businessId)) {
+      leadHeartbeatAgentCache.set(
+        businessId,
+        await getLeadHeartbeatAgentIdForBusiness(businessId),
+      );
+    }
+    return leadHeartbeatAgentCache.get(businessId) ?? null;
   }
 
   async function getCachedMaxParallel(businessId: string): Promise<number | null> {
@@ -74,7 +93,12 @@ export async function pollOnce(): Promise<void> {
 
     const agentOverride = pickAgentIdOverrideFromOrchestrationPayload(payload);
     const resolvedAgentId =
-      agentOverride ?? (full.businessId ? await getCachedLeadAgent(full.businessId) : null);
+      agentOverride ??
+      (full.businessId
+        ? full.type === "lead_heartbeat"
+          ? await getCachedLeadHeartbeatAgentId(full.businessId)
+          : await getCachedLeadAgent(full.businessId)
+        : null);
 
     const businessId = full.businessId;
 

@@ -21,9 +21,12 @@ import {
   loadAgentSkillsContext,
   pickAgentIdOverrideFromOrchestrationPayload,
 } from "./queries";
+import {
+  appendAssistantTextFromAssistantMessage,
+  RUNNER_ASSISTANT_OUTPUT_MAX_CHARS,
+} from "./sdk-assistant-text";
 
 const PLATFORM_FALLBACK_MODEL = "composer-2";
-const MAX_OUTPUT_CHARS = 60_000;
 
 const SUPPORTED_EVENT_TYPES = new Set(["webhook_trigger", "mention_trigger", "lead_heartbeat"]);
 
@@ -236,20 +239,7 @@ export async function dispatchOrchestrationEvent(
       if (typeof msg !== "object" || msg === null || (msg as { type?: unknown }).type !== "assistant")
         continue;
       const assistant = msg as SDKAssistantMessage;
-      const parts = assistant.message?.content;
-      if (!Array.isArray(parts)) continue;
-      for (const block of parts) {
-        if (
-          typeof block === "object" &&
-          block !== null &&
-          "type" in block &&
-          block.type === "text" &&
-          "text" in block &&
-          typeof (block as { text: unknown }).text === "string"
-        ) {
-          text += (block as { text: string }).text;
-        }
-      }
+      text = appendAssistantTextFromAssistantMessage(text, assistant);
     }
 
     const result = await run.wait();
@@ -257,8 +247,8 @@ export async function dispatchOrchestrationEvent(
       typeof result.durationMs === "number" ? result.durationMs : Date.now() - started;
 
     const out =
-      text.length > MAX_OUTPUT_CHARS
-        ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n\n…(truncated)`
+      text.length > RUNNER_ASSISTANT_OUTPUT_MAX_CHARS
+        ? `${text.slice(0, RUNNER_ASSISTANT_OUTPUT_MAX_CHARS)}\n\n…(truncated)`
         : text;
 
     const resolvedModelLabel =

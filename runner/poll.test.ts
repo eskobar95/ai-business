@@ -13,6 +13,7 @@ const resolveRunnerCursorApiKey = vi.hoisted(() => vi.fn());
 const finishOrchestrationEvent = vi.hoisted(() => vi.fn());
 const getBusinessMaxParallelRuns = vi.hoisted(() => vi.fn());
 const getLeadAgentIdForBusiness = vi.hoisted(() => vi.fn());
+const getLeadHeartbeatAgentIdForBusiness = vi.hoisted(() => vi.fn());
 const pickAgentIdOverrideFromOrchestrationPayload = vi.hoisted(() => vi.fn());
 
 vi.mock("./dispatch", () => ({
@@ -29,14 +30,16 @@ vi.mock("./queries", () => ({
   finishOrchestrationEvent,
   getBusinessMaxParallelRuns,
   getLeadAgentIdForBusiness,
+  getLeadHeartbeatAgentIdForBusiness,
   getBusinessesWithLeadAgent,
   pickAgentIdOverrideFromOrchestrationPayload,
 }));
 
-import { pollOnce } from "./poll";
+import { pollOnce, resetPollConcurrencyStateForTests } from "./poll";
 
 describe("runner poll concurrency", () => {
   beforeEach(() => {
+    resetPollConcurrencyStateForTests();
     dispatchOrchestrationEvent.mockClear();
     listPendingOrchestrationEvents.mockReset();
     getOrchestrationEventById.mockReset();
@@ -45,10 +48,12 @@ describe("runner poll concurrency", () => {
     finishOrchestrationEvent.mockReset();
     getBusinessMaxParallelRuns.mockReset();
     getLeadAgentIdForBusiness.mockReset();
+    getLeadHeartbeatAgentIdForBusiness.mockReset();
     getBusinessesWithLeadAgent.mockReset();
     pickAgentIdOverrideFromOrchestrationPayload.mockReset();
 
     getBusinessesWithLeadAgent.mockResolvedValue([]);
+    getLeadHeartbeatAgentIdForBusiness.mockResolvedValue(null);
     resolveRunnerCursorApiKey.mockResolvedValue("cursor-key");
     tryClaimOrchestrationEvent.mockResolvedValue({ ok: true });
     getBusinessMaxParallelRuns.mockResolvedValue(null);
@@ -134,5 +139,43 @@ describe("runner poll concurrency", () => {
     await pollOnce();
 
     expect(dispatchOrchestrationEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("dispatches a single lead_heartbeat event", async () => {
+    getLeadHeartbeatAgentIdForBusiness.mockResolvedValue("heartbeat-agent-1");
+    listPendingOrchestrationEvents.mockResolvedValue([{ id: "evt-1" }]);
+    getOrchestrationEventById.mockResolvedValue({
+      id: "evt-1",
+      businessId: "biz-1",
+      type: "lead_heartbeat",
+      payload: {},
+    });
+
+    await pollOnce();
+    await flushAsyncWork();
+
+    expect(dispatchOrchestrationEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks overlapping lead_heartbeat dispatches for the same heartbeat agent", async () => {
+    getLeadHeartbeatAgentIdForBusiness.mockImplementation(async () => "heartbeat-agent-1");
+    listPendingOrchestrationEvents.mockResolvedValue([{ id: "evt-1" }, { id: "evt-2" }]);
+    tryClaimOrchestrationEvent.mockResolvedValue({ id: "claimed-row" });
+
+    let callIdx = 0;
+    getOrchestrationEventById.mockImplementation(async () => {
+      callIdx += 1;
+      return {
+        id: callIdx === 1 ? "evt-1" : "evt-2",
+        businessId: "biz-1",
+        type: "lead_heartbeat",
+        payload: {},
+      };
+    });
+
+    await pollOnce();
+    await flushAsyncWork();
+
+    expect(dispatchOrchestrationEvent).toHaveBeenCalledTimes(1);
   });
 });

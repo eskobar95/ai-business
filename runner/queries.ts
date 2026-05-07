@@ -92,6 +92,9 @@ export async function resolveAgentIdForEvent(eventId: string): Promise<string | 
     raw && typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   const agentOverride = pickAgentIdOverrideFromOrchestrationPayload(payload);
   if (agentOverride) return agentOverride;
+  if (evt.type === "lead_heartbeat") {
+    return await getLeadHeartbeatAgentIdForBusiness(evt.businessId);
+  }
   return await getLeadAgentIdForBusiness(evt.businessId);
 }
 
@@ -132,6 +135,36 @@ export async function getLeadAgentIdForBusiness(businessId: string): Promise<str
     orderBy: [asc(teams.createdAt)],
   });
   return team?.leadAgentId ?? null;
+}
+
+/**
+ * Agent that runs lead heartbeat for a business (`runs_heartbeat` role), stable ordering when
+ * several agents qualify (`created_at`, then `id`).
+ */
+export async function getLeadHeartbeatAgentForBusiness(
+  businessId: string,
+): Promise<{ id: string; name: string; heartbeatPromotionCap: number } | null> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: agents.id,
+      name: agents.name,
+      heartbeatPromotionCap: agents.heartbeatPromotionCap,
+    })
+    .from(agents)
+    .innerJoin(systemRoles, eq(agents.systemRoleId, systemRoles.id))
+    .where(and(eq(agents.businessId, businessId), eq(systemRoles.runsHeartbeat, true)))
+    .orderBy(asc(agents.createdAt), asc(agents.id))
+    .limit(1);
+  const row = rows[0];
+  return row ?? null;
+}
+
+export async function getLeadHeartbeatAgentIdForBusiness(
+  businessId: string,
+): Promise<string | null> {
+  const agent = await getLeadHeartbeatAgentForBusiness(businessId);
+  return agent?.id ?? null;
 }
 
 /** Returns all businessIds that have at least one agent with runsHeartbeat=true. */

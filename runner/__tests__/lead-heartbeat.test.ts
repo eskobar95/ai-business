@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const finishOrchestrationEvent = vi.hoisted(() => vi.fn());
 const getBusinessLocalPath = vi.hoisted(() => vi.fn());
+const getLeadHeartbeatAgentForBusiness = vi.hoisted(() => vi.fn());
 
 vi.mock("../queries", () => ({
   finishOrchestrationEvent,
   getBusinessLocalPath,
+  getLeadHeartbeatAgentForBusiness,
 }));
 
 const assertBusinessReadyForExecution = vi.hoisted(() => vi.fn());
@@ -50,8 +52,7 @@ import { dispatchLeadHeartbeat, parseLeadOutput } from "../lead-heartbeat";
 const task1 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const task2 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-function makeDbMock(
-  leadRow: { id: string; name: string; heartbeatPromotionCap: number } | null,
+function makeTasksDbMock(
   backlog: Array<{
     id: string;
     title: string;
@@ -62,17 +63,7 @@ function makeDbMock(
     agentId: string | null;
   }>,
 ) {
-  const limitResult = leadRow ? [leadRow] : [];
   return {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        innerJoin: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(() => Promise.resolve(limitResult)),
-          })),
-        })),
-      })),
-    })),
     query: {
       tasks: {
         findMany: vi.fn(() => Promise.resolve(backlog)),
@@ -122,6 +113,11 @@ describe("dispatchLeadHeartbeat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getBusinessLocalPath.mockResolvedValue("/repo");
+    getLeadHeartbeatAgentForBusiness.mockResolvedValue({
+      id: "lead-1",
+      name: "Lead",
+      heartbeatPromotionCap: 5,
+    });
     assertBusinessReadyForExecution.mockResolvedValue(undefined);
     buildLeadHeartbeatPrompt.mockResolvedValue("prompt");
     resolveCursorConfig.mockResolvedValue({ modelId: undefined, thinkingEffort: undefined });
@@ -153,7 +149,8 @@ describe("dispatchLeadHeartbeat", () => {
   });
 
   it("fails if no lead agent with runsHeartbeat=true", async () => {
-    getDb.mockReturnValue(makeDbMock(null, []));
+    getLeadHeartbeatAgentForBusiness.mockResolvedValueOnce(null);
+    getDb.mockReturnValue(makeTasksDbMock([]));
     await dispatchLeadHeartbeat("evt-1", { businessId: "biz-1", payload: {} }, "");
     expect(finishOrchestrationEvent).toHaveBeenCalledWith("evt-1", {
       status: "failed",
@@ -164,30 +161,32 @@ describe("dispatchLeadHeartbeat", () => {
   });
 
   it("promotes up to heartbeatPromotionCap tasks", async () => {
+    getLeadHeartbeatAgentForBusiness.mockResolvedValueOnce({
+      id: "lead-1",
+      name: "Lead",
+      heartbeatPromotionCap: 1,
+    });
     getDb.mockReturnValue(
-      makeDbMock(
-        { id: "lead-1", name: "Lead", heartbeatPromotionCap: 1 },
-        [
-          {
-            id: task1,
-            title: "T1",
-            description: null,
-            dependencyTaskId: null,
-            githubPrNumber: null,
-            prMergedToIntegration: false,
-            agentId: null,
-          },
-          {
-            id: task2,
-            title: "T2",
-            description: null,
-            dependencyTaskId: null,
-            githubPrNumber: null,
-            prMergedToIntegration: false,
-            agentId: null,
-          },
-        ],
-      ),
+      makeTasksDbMock([
+        {
+          id: task1,
+          title: "T1",
+          description: null,
+          dependencyTaskId: null,
+          githubPrNumber: null,
+          prMergedToIntegration: false,
+          agentId: null,
+        },
+        {
+          id: task2,
+          title: "T2",
+          description: null,
+          dependencyTaskId: null,
+          githubPrNumber: null,
+          prMergedToIntegration: false,
+          agentId: null,
+        },
+      ]),
     );
     const sdk = makeAgentSdk(
       `\`\`\`json\n${JSON.stringify({ promote: [task1, task2] })}\n\`\`\``,
@@ -214,20 +213,17 @@ describe("dispatchLeadHeartbeat", () => {
 
   it("does not promote BLOCKED tasks", async () => {
     getDb.mockReturnValue(
-      makeDbMock(
-        { id: "lead-1", name: "Lead", heartbeatPromotionCap: 5 },
-        [
-          {
-            id: task1,
-            title: "T1",
-            description: null,
-            dependencyTaskId: null,
-            githubPrNumber: null,
-            prMergedToIntegration: false,
-            agentId: null,
-          },
-        ],
-      ),
+      makeTasksDbMock([
+        {
+          id: task1,
+          title: "T1",
+          description: null,
+          dependencyTaskId: null,
+          githubPrNumber: null,
+          prMergedToIntegration: false,
+          agentId: null,
+        },
+      ]),
     );
     evaluateTaskGates.mockResolvedValue({
       ready: false,
@@ -257,20 +253,17 @@ describe("dispatchLeadHeartbeat", () => {
 
   it("logs all promotions and errors in event payload", async () => {
     getDb.mockReturnValue(
-      makeDbMock(
-        { id: "lead-1", name: "Lead", heartbeatPromotionCap: 5 },
-        [
-          {
-            id: task1,
-            title: "T1",
-            description: null,
-            dependencyTaskId: null,
-            githubPrNumber: null,
-            prMergedToIntegration: false,
-            agentId: null,
-          },
-        ],
-      ),
+      makeTasksDbMock([
+        {
+          id: task1,
+          title: "T1",
+          description: null,
+          dependencyTaskId: null,
+          githubPrNumber: null,
+          prMergedToIntegration: false,
+          agentId: null,
+        },
+      ]),
     );
     promoteTaskToTodoByRunner.mockRejectedValueOnce(new Error("promo failed"));
     const sdk = makeAgentSdk(
