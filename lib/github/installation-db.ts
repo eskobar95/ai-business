@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 import { githubInstallations, githubInstallationSelectedRepos } from "@/db/schema";
 import type { AppDb } from "@/lib/templates/db-types";
@@ -107,7 +107,11 @@ export async function getSelectedReposByInstallation(
   const rows = await db
     .select({ repoUrl: githubInstallationSelectedRepos.repoUrl })
     .from(githubInstallationSelectedRepos)
-    .where(eq(githubInstallationSelectedRepos.installationId, installationId));
+    .where(eq(githubInstallationSelectedRepos.installationId, installationId))
+    .orderBy(
+      asc(githubInstallationSelectedRepos.createdAt),
+      asc(githubInstallationSelectedRepos.repoUrl),
+    );
   return rows.map((r) => r.repoUrl);
 }
 
