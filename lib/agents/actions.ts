@@ -13,8 +13,6 @@ import { validateReportsToForBusiness } from "./reports-cycle";
 import { resolveAvatarColumnsForUpsert } from "@/lib/agents/avatar-upsert";
 import { assertValidAgentCursorPatchFields } from "@/lib/agents/cursor-agent-config";
 
-export type { AgentCommunicationCanvasRow } from "@/lib/agents/communication-canvas";
-
 /** Columns persisted on `agents` (no legacy `instructions` column; soul is in `agent_documents`). */
 const agentsPublicColumns = {
   id: true,

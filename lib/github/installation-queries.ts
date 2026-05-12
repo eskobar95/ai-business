@@ -19,6 +19,7 @@ export async function fetchGithubInstallationForBusiness(
     accountLogin: row.accountLogin,
     accountType: row.accountType,
     repos: row.repos,
+    selectedRepos: row.selectedRepos,
     updatedAt: row.updatedAt,
   };
 }

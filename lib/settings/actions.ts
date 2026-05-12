@@ -3,7 +3,7 @@
 import { verifyCursorApiKey } from "@/lib/cursor/verify-api-key";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { getDb } from "@/db/index";
-import { businesses, memory, userBusinesses, userSettings } from "@/db/schema";
+import { businesses, githubInstallations, memory, userBusinesses, userSettings } from "@/db/schema";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { encryptCredential } from "@/lib/mcp/encryption";
@@ -151,6 +151,12 @@ export type SettingsBusinessRow = {
   defaultCursorModelId: string | null;
   defaultCursorThinkingEffort: string | null;
   memorySections: Array<{ id: string; content: string; updatedAt: Date }>;
+  /** Repos from GitHub App installation (available + selected). Null if not connected. */
+  githubInstallation: {
+    repos: string[];
+    selectedRepos: string[] | null;
+    accountLogin: string;
+  } | null;
 };
 
 /**
@@ -187,6 +193,23 @@ export async function getSettingsPageState(): Promise<{
 
   const businessIds = rows.map((r) => r.id);
 
+  const installationRows =
+    businessIds.length > 0
+      ? await db
+          .select({
+            businessId: githubInstallations.businessId,
+            repos: githubInstallations.repos,
+            selectedRepos: githubInstallations.selectedRepos,
+            accountLogin: githubInstallations.accountLogin,
+          })
+          .from(githubInstallations)
+          .where(inArray(githubInstallations.businessId, businessIds))
+      : [];
+
+  const installationByBusiness = new Map(
+    installationRows.map((i) => [i.businessId, i]),
+  );
+
   const memoryRows =
     businessIds.length > 0
       ? await db
@@ -217,11 +240,17 @@ export async function getSettingsPageState(): Promise<{
     memoryByBusiness.set(m.businessId, list);
   }
 
-  const businessRows: SettingsBusinessRow[] = rows.map((r) => ({
-    ...r,
-    websiteUrl: null, // not yet in DB schema
-    memorySections: memoryByBusiness.get(r.id) ?? [],
-  }));
+  const businessRows: SettingsBusinessRow[] = rows.map((r) => {
+    const inst = installationByBusiness.get(r.id);
+    return {
+      ...r,
+      websiteUrl: null, // not yet in DB schema
+      memorySections: memoryByBusiness.get(r.id) ?? [],
+      githubInstallation: inst
+        ? { repos: inst.repos, selectedRepos: inst.selectedRepos, accountLogin: inst.accountLogin }
+        : null,
+    };
+  });
 
   return { hasCursorApiKey, businesses: businessRows };
 }

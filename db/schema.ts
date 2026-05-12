@@ -484,6 +484,8 @@ export const githubInstallations = pgTable(
     accountLogin: text("account_login").notNull(),
     accountType: text("account_type").notNull().$type<"User" | "Organization">(),
     repos: jsonb("repos").$type<string[]>().notNull().default([]),
+    /** User-selected subset of `repos` that agents actively work with. Null = all repos. */
+    selectedRepos: jsonb("selected_repos").$type<string[]>(),
     tokenIv: text("token_iv"),
     tokenEncrypted: jsonb("token_encrypted").$type<GithubInstallationTokenEncrypted | null>(),
     tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),

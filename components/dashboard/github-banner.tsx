@@ -17,7 +17,7 @@ export function GitHubBanner({
         Connect GitHub so your agents can commit, open PRs and review code.
       </p>
       <Button asChild size="sm" variant="outline" className="shrink-0 cursor-pointer">
-        <Link href={`/dashboard/settings/integrations?businessId=${encodeURIComponent(businessId)}`}>
+        <Link href={`/dashboard/settings?businessId=${encodeURIComponent(businessId)}&section=integrations`}>
           Connect GitHub
         </Link>
       </Button>
