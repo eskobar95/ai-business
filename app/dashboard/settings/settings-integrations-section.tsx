@@ -82,7 +82,7 @@ export async function SettingsIntegrationsSection({
                   <GithubRepoSelector
                     businessId={businessId}
                     allRepos={row!.repos}
-                    initialSelected={row!.selectedRepos ?? null}
+                    initialSelected={(row?.selectedRepos?.length ?? 0) > 0 ? row!.selectedRepos : null}
                   />
                 </div>
               ) : (

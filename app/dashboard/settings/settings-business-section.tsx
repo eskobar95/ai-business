@@ -73,7 +73,7 @@ export function SettingsBusinessSection({
             <div className="rounded-md border border-border bg-white/[0.02] px-3 py-2">
               {(() => {
                 const inst = business.githubInstallation!;
-                const active = inst.selectedRepos ?? inst.repos;
+                const active = inst.selectedRepos.length > 0 ? inst.selectedRepos : inst.repos;
                 if (active.length === 0) {
                   return (
                     <p className="text-[12px] text-muted-foreground">

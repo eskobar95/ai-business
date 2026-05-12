@@ -484,8 +484,6 @@ export const githubInstallations = pgTable(
     accountLogin: text("account_login").notNull(),
     accountType: text("account_type").notNull().$type<"User" | "Organization">(),
     repos: jsonb("repos").$type<string[]>().notNull().default([]),
-    /** User-selected subset of `repos` that agents actively work with. Null = all repos. */
-    selectedRepos: jsonb("selected_repos").$type<string[]>(),
     tokenIv: text("token_iv"),
     tokenEncrypted: jsonb("token_encrypted").$type<GithubInstallationTokenEncrypted | null>(),
     tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
@@ -497,6 +495,26 @@ export const githubInstallations = pgTable(
     uniqueIndex("github_installations_installation_id_unique").on(t.installationId),
     index("github_installations_business_id_idx").on(t.businessId),
     index("github_installations_repos_gin_idx").using("gin", t.repos),
+  ],
+);
+
+/**
+ * User-selected subset of repos for an installation.
+ * Empty table = no explicit selection → agents fall back to all repos from the parent installation.
+ */
+export const githubInstallationSelectedRepos = pgTable(
+  "github_installation_selected_repos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    installationId: uuid("installation_id")
+      .notNull()
+      .references(() => githubInstallations.id, { onDelete: "cascade" }),
+    repoUrl: text("repo_url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("github_install_selected_repos_unique").on(t.installationId, t.repoUrl),
+    index("github_install_selected_repos_installation_idx").on(t.installationId),
   ],
 );
 

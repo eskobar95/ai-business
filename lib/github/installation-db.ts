@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
-import { githubInstallations } from "@/db/schema";
+import { githubInstallations, githubInstallationSelectedRepos } from "@/db/schema";
 import type { AppDb } from "@/lib/templates/db-types";
 
 import type { McpEncryptedPayload } from "@/lib/mcp/encryption";
@@ -94,6 +94,54 @@ export function encryptedPayloadFromRow(row: GithubInstallationRow): {
 } | null {
   if (!row.tokenIv || !row.tokenEncrypted) return null;
   return { iv: row.tokenIv, payload: row.tokenEncrypted as McpEncryptedPayload };
+}
+
+/**
+ * Returns the explicitly selected repo URLs for an installation.
+ * An empty array means no explicit selection (agents fall back to all repos).
+ */
+export async function getSelectedReposByInstallation(
+  db: AppDb,
+  installationId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ repoUrl: githubInstallationSelectedRepos.repoUrl })
+    .from(githubInstallationSelectedRepos)
+    .where(eq(githubInstallationSelectedRepos.installationId, installationId));
+  return rows.map((r) => r.repoUrl);
+}
+
+/**
+ * Replaces the selected-repo set for an installation atomically (delete + insert).
+ * Pass an empty array to clear the selection (falls back to all repos).
+ * All provided URLs are validated against `allowedRepos` — unknown URLs are silently dropped.
+ */
+export async function setSelectedReposForInstallation(
+  db: AppDb,
+  installationId: string,
+  repoUrls: string[],
+  allowedRepos: string[],
+): Promise<void> {
+  const valid = repoUrls.filter((r) => allowedRepos.includes(r));
+  await db
+    .delete(githubInstallationSelectedRepos)
+    .where(eq(githubInstallationSelectedRepos.installationId, installationId));
+  if (valid.length > 0) {
+    await db.insert(githubInstallationSelectedRepos).values(
+      valid.map((repoUrl) => ({ installationId, repoUrl })),
+    );
+  }
+}
+
+/** Removes all selected repos for a set of installations (used on cascade disconnect). */
+export async function deleteSelectedReposByInstallations(
+  db: AppDb,
+  installationIds: string[],
+): Promise<void> {
+  if (installationIds.length === 0) return;
+  await db
+    .delete(githubInstallationSelectedRepos)
+    .where(inArray(githubInstallationSelectedRepos.installationId, installationIds));
 }
 
 /** Decrypts stored installation token for server-side use (disconnect, runner). Never log return value. */

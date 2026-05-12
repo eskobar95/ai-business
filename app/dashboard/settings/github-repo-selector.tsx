@@ -58,7 +58,7 @@ export function GithubRepoSelector({
         <p className="text-[11px] text-muted-foreground">
           Select repositories agents can work with.{" "}
           {noneSelected ? (
-            <span className="text-amber-500">No repos selected — agents will not have repository access.</span>
+            <span className="text-amber-500">No explicit selection — agents will use all available repositories.</span>
           ) : allSelected ? (
             <span>All {allRepos.length} repos selected.</span>
           ) : (

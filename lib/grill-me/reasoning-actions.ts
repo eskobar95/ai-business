@@ -17,6 +17,7 @@ import {
 import { auth } from "@/lib/auth/server";
 import { getDb } from "@/db/index";
 import { businesses, githubInstallations } from "@/db/schema";
+import { getSelectedReposByInstallation } from "@/lib/github/installation-db";
 import { runCursorAgent } from "@/lib/cursor/agent";
 import { getUserCursorApiKeyDecrypted } from "@/lib/settings/cursor-api-key";
 import { eq } from "drizzle-orm";
@@ -75,14 +76,15 @@ export async function runGrillReasoningPhase(
     row.description,
   );
 
-  // Resolve active repo: selectedRepos from GitHub installation first, then businesses.github_repo_url.
+  // Resolve active repo: selectedRepos (child table) → all repos → businesses.github_repo_url.
   let activeRepoUrl: string | null = row.githubRepoUrl?.trim() ?? null;
   const installation = await db.query.githubInstallations.findFirst({
     where: eq(githubInstallations.businessId, businessId),
-    columns: { selectedRepos: true, repos: true },
+    columns: { id: true, repos: true },
   });
   if (installation) {
-    const active = installation.selectedRepos ?? installation.repos ?? [];
+    const selectedRepos = await getSelectedReposByInstallation(db, installation.id);
+    const active = selectedRepos.length > 0 ? selectedRepos : (installation.repos as string[] ?? []);
     if (active.length > 0) {
       activeRepoUrl = `https://github.com/${active[0]}`;
     }

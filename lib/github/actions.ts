@@ -1,18 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
-import { githubInstallations } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
-import { deleteGithubInstallationByBusiness, getGithubInstallationByBusiness, tryDecryptGithubInstallationToken } from "@/lib/github/installation-db";
+import {
+  deleteGithubInstallationByBusiness,
+  getGithubInstallationByBusiness,
+  setSelectedReposForInstallation,
+  tryDecryptGithubInstallationToken,
+} from "@/lib/github/installation-db";
 import { githubRevokeInstallationAccessToken } from "@/lib/github/rest";
 import { requireSessionUserId } from "@/lib/roster/session";
 
 /**
  * Persist the user-selected subset of repos for this workspace.
- * Pass an empty array to clear selection (falls back to all repos).
+ * Pass an empty array to clear selection (agents fall back to all repos).
  */
 export async function updateSelectedRepos(
   businessId: string,
@@ -24,11 +27,7 @@ export async function updateSelectedRepos(
   const row = await getGithubInstallationByBusiness(db, businessId);
   if (!row) return { success: false, error: "No GitHub installation found for this workspace." };
 
-  const validRepos = selectedRepos.filter((r) => row.repos.includes(r));
-  await db
-    .update(githubInstallations)
-    .set({ selectedRepos: validRepos.length > 0 ? validRepos : null, updatedAt: new Date() })
-    .where(eq(githubInstallations.businessId, businessId));
+  await setSelectedReposForInstallation(db, row.id, selectedRepos, row.repos as string[]);
 
   revalidatePath("/dashboard/settings");
   return { success: true };

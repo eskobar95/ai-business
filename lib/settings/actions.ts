@@ -3,7 +3,7 @@
 import { verifyCursorApiKey } from "@/lib/cursor/verify-api-key";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { getDb } from "@/db/index";
-import { businesses, githubInstallations, memory, userBusinesses, userSettings } from "@/db/schema";
+import { businesses, githubInstallations, githubInstallationSelectedRepos, memory, userBusinesses, userSettings } from "@/db/schema";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { encryptCredential } from "@/lib/mcp/encryption";
@@ -154,7 +154,8 @@ export type SettingsBusinessRow = {
   /** Repos from GitHub App installation (available + selected). Null if not connected. */
   githubInstallation: {
     repos: string[];
-    selectedRepos: string[] | null;
+    /** Explicitly selected repos from child table. Empty = no selection → fall back to all repos. */
+    selectedRepos: string[];
     accountLogin: string;
   } | null;
 };
@@ -197,17 +198,39 @@ export async function getSettingsPageState(): Promise<{
     businessIds.length > 0
       ? await db
           .select({
+            id: githubInstallations.id,
             businessId: githubInstallations.businessId,
             repos: githubInstallations.repos,
-            selectedRepos: githubInstallations.selectedRepos,
             accountLogin: githubInstallations.accountLogin,
           })
           .from(githubInstallations)
           .where(inArray(githubInstallations.businessId, businessIds))
       : [];
 
+  const installationIds = installationRows.map((i) => i.id);
+  const selectedRepoRows =
+    installationIds.length > 0
+      ? await db
+          .select({
+            installationId: githubInstallationSelectedRepos.installationId,
+            repoUrl: githubInstallationSelectedRepos.repoUrl,
+          })
+          .from(githubInstallationSelectedRepos)
+          .where(inArray(githubInstallationSelectedRepos.installationId, installationIds))
+      : [];
+
+  const selectedReposByInstallation = new Map<string, string[]>();
+  for (const row of selectedRepoRows) {
+    const list = selectedReposByInstallation.get(row.installationId) ?? [];
+    list.push(row.repoUrl);
+    selectedReposByInstallation.set(row.installationId, list);
+  }
+
   const installationByBusiness = new Map(
-    installationRows.map((i) => [i.businessId, i]),
+    installationRows.map((i) => [i.businessId, {
+      ...i,
+      selectedRepos: selectedReposByInstallation.get(i.id) ?? [],
+    }]),
   );
 
   const memoryRows =
