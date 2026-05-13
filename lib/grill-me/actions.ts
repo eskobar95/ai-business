@@ -40,6 +40,7 @@ import {
   userBusinesses,
 } from "@/db/schema";
 import { runCursorAgent } from "@/lib/cursor/agent";
+import { seedConductorAgent } from "@/lib/conductor/seed-conductor";
 import { getUserCursorApiKeyDecrypted } from "@/lib/settings/cursor-api-key";
 import { and, desc, eq, isNull, max, sql } from "drizzle-orm";
 
@@ -104,6 +105,8 @@ export async function createBusinessWithDetails(data: {
     userId,
     businessId: biz.id,
   });
+
+  await seedConductorAgent(biz.id);
 
   return { id: biz.id };
 }

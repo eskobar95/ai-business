@@ -204,6 +204,11 @@ export const agents = pgTable(
      * Default 3. Only meaningful when system_role.runsHeartbeat = true.
      */
     heartbeatPromotionCap: integer("heartbeat_promotion_cap").notNull().default(3),
+    /**
+     * Platform-owned roster entry (e.g. Conductor). UI must not offer destructive delete;
+     * server actions should reject deletion as well.
+     */
+    isPlatformDefault: boolean("is_platform_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

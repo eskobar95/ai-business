@@ -1,5 +1,9 @@
 import { getDb } from "@/db/index";
 import { agents, approvals, memory, taskLogs, tasks } from "@/db/schema";
+import {
+  applyConductorInstructionPlaceholders,
+  loadConductorOrchestrationSnapshot,
+} from "@/lib/conductor/conductor-context";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 const CONTEXT_SEP = "\n\n--- CONTEXT ---\n\n";
@@ -64,12 +68,17 @@ export function formatHeartbeatPrompt(c: HeartbeatPromptContext): string {
   return parts.join(CONTEXT_SEP);
 }
 
-async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPromptContext> {
+type HeartbeatPromptContextLoaded = HeartbeatPromptContext & {
+  businessId: string;
+  isPlatformDefault: boolean;
+};
+
+async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPromptContextLoaded> {
   const db = getDb();
 
   const agentRow = await db.query.agents.findFirst({
     where: eq(agents.id, agentId),
-    columns: { id: true, businessId: true },
+    columns: { id: true, businessId: true, isPlatformDefault: true },
     with: {
       documents: true,
       archetype: { columns: { heartbeatAddendum: true } },
@@ -118,14 +127,30 @@ async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPro
       .limit(5);
   }
 
-  const pendingApprovals = await db
-    .select({
-      id: approvals.id,
-      artifactRef: approvals.artifactRef,
-      comment: approvals.comment,
-    })
-    .from(approvals)
-    .where(and(eq(approvals.agentId, agentId), eq(approvals.approvalStatus, "pending")));
+  const platformDefault = agentRow.isPlatformDefault === true;
+
+  const pendingApprovals = platformDefault
+    ? await db
+        .select({
+          id: approvals.id,
+          artifactRef: approvals.artifactRef,
+          comment: approvals.comment,
+        })
+        .from(approvals)
+        .where(
+          and(
+            eq(approvals.businessId, agentRow.businessId),
+            eq(approvals.approvalStatus, "pending"),
+          ),
+        )
+    : await db
+        .select({
+          id: approvals.id,
+          artifactRef: approvals.artifactRef,
+          comment: approvals.comment,
+        })
+        .from(approvals)
+        .where(and(eq(approvals.agentId, agentId), eq(approvals.approvalStatus, "pending")));
 
   return {
     soul,
@@ -135,6 +160,8 @@ async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPro
     openTasks,
     recentTaskLogs,
     pendingApprovals,
+    businessId: agentRow.businessId,
+    isPlatformDefault: platformDefault,
   };
 }
 
@@ -142,6 +169,14 @@ async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPro
  * Compose the heartbeat markdown prompt: soul → heartbeat doc → archetype → memory → tasks → logs → approvals.
  */
 export async function buildHeartbeatPrompt(agentId: string): Promise<string> {
-  const ctx = await loadHeartbeatPromptContext(agentId);
-  return formatHeartbeatPrompt(ctx);
+  const loaded = await loadHeartbeatPromptContext(agentId);
+  const { businessId, isPlatformDefault, ...ctx } = loaded;
+
+  let soul = ctx.soul;
+  if (isPlatformDefault) {
+    const snap = await loadConductorOrchestrationSnapshot(businessId);
+    soul = applyConductorInstructionPlaceholders(soul, snap);
+  }
+
+  return formatHeartbeatPrompt({ ...ctx, soul });
 }

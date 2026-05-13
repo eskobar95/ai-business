@@ -32,6 +32,7 @@ const agentsPublicColumns = {
   cursorThinkingEffort: true,
   cursorRuntimeProfile: true,
   heartbeatPromotionCap: true,
+  isPlatformDefault: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -271,6 +272,14 @@ export async function updateAgentAvatar(
 export async function deleteAgent(agentId: string): Promise<void> {
   await assertUserOwnsAgent(agentId);
   const db = getDb();
+
+  const platformRow = await db.query.agents.findFirst({
+    where: eq(agents.id, agentId),
+    columns: { isPlatformDefault: true },
+  });
+  if (platformRow?.isPlatformDefault) {
+    throw new Error("This platform agent cannot be deleted.");
+  }
 
   const blockingTeam = await db.query.teams.findFirst({
     where: eq(teams.leadAgentId, agentId),

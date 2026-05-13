@@ -165,9 +165,16 @@ export function AgentsRosterClient({
                   sizeClasses="size-7 shrink-0 rounded-md text-[11px]"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-foreground tracking-[-0.01em]">
-                    {a.name}
-                  </p>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate text-[13px] font-medium text-foreground tracking-[-0.01em]">
+                      {a.name}
+                    </p>
+                    {a.isPlatformDefault ? (
+                      <span className="shrink-0 rounded border border-white/[0.14] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Platform
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="truncate font-mono text-[10px] text-muted-foreground/60">
                     {a.role}
                   </p>

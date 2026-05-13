@@ -148,6 +148,13 @@
       "when": 1778597522603,
       "tag": "0020_typical_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1778709968735,
+      "tag": "0021_premium_mercury",
+      "breakpoints": true
     }
   ]
 }

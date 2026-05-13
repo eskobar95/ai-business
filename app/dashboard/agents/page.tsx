@@ -41,6 +41,7 @@ export default async function AgentsDashboardPage({
           role: a.role,
           avatarUrl: a.avatarUrl,
           iconKey: a.iconKey,
+          isPlatformDefault: a.isPlatformDefault,
         },
         skillCount: skills.length,
         mcpCount: mcps.length,
