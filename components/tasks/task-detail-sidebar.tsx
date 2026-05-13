@@ -23,7 +23,7 @@ import { slugifyTaskTitleSegment } from "@/lib/tasks/task-detail-helpers";
 import type { TaskRelationItem } from "@/lib/tasks/task-detail-types";
 import {
   updateTaskLabels,
-  updateTaskProject,
+  updateTaskMission,
   addTaskRelation,
   removeTaskRelation,
   updateTaskDependency,
@@ -56,7 +56,7 @@ function BlockedBySection({
     title: string;
     status: string;
     priority: string | null;
-    project: string | null;
+    mission: string | null;
   }[];
 }) {
   const router = useRouter();
@@ -106,7 +106,7 @@ function BlockedBySection({
                   title: initialDependency.title,
                   status: initialDependency.status,
                   priority: null as string | null,
-                  project: null as string | null,
+                  mission: null as string | null,
                 },
               ]
             : []
@@ -291,26 +291,30 @@ function LabelsSection({
   );
 }
 
-function ProjectField({
+function MissionField({
   taskId,
-  initialProject,
+  initialMission,
 }: {
   taskId: string;
-  initialProject: string | null;
+  initialMission: string | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(initialProject ?? "");
+  const [value, setValue] = useState(initialMission ?? "");
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!editing) setValue(initialMission ?? "");
+  }, [initialMission, editing]);
 
   function save() {
     const trimmed = value.trim();
     setEditing(false);
     startTransition(async () => {
       try {
-        await updateTaskProject(taskId, trimmed || null);
+        await updateTaskMission(taskId, trimmed || null);
       } catch {
-        toast.error("Failed to update project");
-        setValue(initialProject ?? "");
+        toast.error("Failed to update mission");
+        setValue(initialMission ?? "");
       }
     });
   }
@@ -325,7 +329,7 @@ function ProjectField({
         onKeyDown={(e) => {
           if (e.key === "Enter") save();
           if (e.key === "Escape") {
-            setValue(initialProject ?? "");
+            setValue(initialMission ?? "");
             setEditing(false);
           }
         }}
@@ -344,7 +348,7 @@ function ProjectField({
       {value ? (
         <span className="text-foreground/70">{value}</span>
       ) : (
-        <span className="text-muted-foreground/35">Add project…</span>
+        <span className="text-muted-foreground/35">Add mission…</span>
       )}
     </button>
   );
@@ -364,7 +368,7 @@ function RelationsSection({
     title: string;
     status: string;
     priority?: string | null;
-    project?: string | null;
+    mission?: string | null;
   }[];
 }) {
   const router = useRouter();
@@ -525,7 +529,7 @@ export type TaskDetailSidebarProps = {
   taskTitle: string;
   businessId: string;
   labels: string[];
-  project: string | null;
+  mission: string | null;
   approvalId: string | null;
   initialRelations: TaskRelationItem[];
   allTasks: {
@@ -533,7 +537,7 @@ export type TaskDetailSidebarProps = {
     title: string;
     status: string;
     priority: string | null;
-    project: string | null;
+    mission: string | null;
   }[];
   createdLabel: string;
   updatedLabel: string;
@@ -562,7 +566,7 @@ export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
     taskTitle,
     businessId,
     labels,
-    project,
+    mission,
     approvalId,
     initialRelations,
     allTasks,
@@ -612,8 +616,8 @@ export function TaskDetailSidebar(props: TaskDetailSidebarProps) {
           <LabelsSection taskId={taskId} initialLabels={labels} />
         </SidebarSection>
 
-        <SidebarSection label="Project">
-          <ProjectField taskId={taskId} initialProject={project} />
+        <SidebarSection label="Mission">
+          <MissionField taskId={taskId} initialMission={mission} />
         </SidebarSection>
 
         <SidebarSection label="Blocked by">

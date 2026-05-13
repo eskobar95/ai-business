@@ -7,10 +7,10 @@ import { createSprint } from "@/lib/sprints/actions";
 import { PrimaryButton } from "@/components/ui/primary-button";
 
 export function SprintFormInline({
-  projectId,
+  missionId,
   onDone,
 }: {
-  projectId: string;
+  missionId: string;
   onDone: () => void;
 }) {
   const [name, setName] = useState("");
@@ -20,7 +20,7 @@ export function SprintFormInline({
   function submit() {
     start(async () => {
       try {
-        await createSprint(projectId, { name: name.trim(), goal: goal.trim() || undefined });
+        await createSprint(missionId, { name: name.trim(), goal: goal.trim() || undefined });
         toast.success("Sprint added.");
         setName("");
         setGoal("");

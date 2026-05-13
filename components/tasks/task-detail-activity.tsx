@@ -258,7 +258,7 @@ export function CommentBox({
     title: string;
     status: string;
     priority: string | null;
-    project: string | null;
+    mission: string | null;
   }[];
 }) {
   const router = useRouter();
@@ -276,7 +276,7 @@ export function CommentBox({
         type: "task" as const,
         status: t.status || "backlog",
         priority: t.priority || "medium",
-        project: t.project || "",
+        mission: t.mission || "",
       })),
   ];
 

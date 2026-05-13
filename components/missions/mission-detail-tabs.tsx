@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import type { approvals, tasks as tasksTbl, projects, sprints } from "@/db/schema";
-import { SprintCard } from "@/components/projects/sprint-card";
-import { SprintFormInline } from "@/components/projects/sprint-form";
+import type { approvals, tasks as tasksTbl, missions, sprints } from "@/db/schema";
+import { SprintCard } from "@/components/missions/sprint-card";
+import { SprintFormInline } from "@/components/missions/sprint-form";
 import { NovelEditor } from "@/components/ui/novel-editor";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { updateProject } from "@/lib/projects/actions";
+import { updateMission } from "@/lib/missions/actions";
 
-type ProjectRow = typeof projects.$inferSelect;
+type MissionRow = typeof missions.$inferSelect;
 type SprintRow = typeof sprints.$inferSelect;
 type TaskBrief = Pick<
   typeof tasksTbl.$inferSelect,
@@ -32,28 +32,28 @@ const STATUS_META = [
   { id: "archived", label: "Archived" },
 ];
 
-export function ProjectDetailTabs({
+export function MissionDetailTabs({
   businessId,
-  project,
+  mission,
   tasks,
   approvalsRows,
 }: {
   businessId: string;
-  project: ProjectRow & { sprintsMany: SprintRow[] };
+  mission: MissionRow & { sprintsMany: SprintRow[] };
   tasks: TaskBrief[];
   approvalsRows: ApprovalBrief[];
 }) {
   const router = useRouter();
-  const [prd, setPrd] = useState(project.prd);
-  const [name, setName] = useState(project.name);
-  const [status, setStatus] = useState(project.status);
+  const [prd, setPrd] = useState(mission.prd);
+  const [name, setName] = useState(mission.name);
+  const [status, setStatus] = useState(mission.status);
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    setPrd(project.prd);
-    setName(project.name);
-    setStatus(project.status);
-  }, [project.prd, project.name, project.status, project.updatedAt, project.id]);
+    setPrd(mission.prd);
+    setName(mission.name);
+    setStatus(mission.status);
+  }, [mission.prd, mission.name, mission.status, mission.updatedAt, mission.id]);
 
   const taskCountBySprint = useMemo(() => {
     const m = new Map<string, number>();
@@ -71,8 +71,8 @@ export function ProjectDetailTabs({
   function savePrd() {
     start(async () => {
       try {
-        await updateProject(project.id, { prd, name: name.trim(), status });
-        toast.success("Project saved.");
+        await updateMission(mission.id, { prd, name: name.trim(), status });
+        toast.success("Mission saved.");
         refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Save failed");
@@ -87,11 +87,11 @@ export function ProjectDetailTabs({
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
         <div className="flex min-w-[200px] flex-1 flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 flex flex-col gap-1.5">
-            <label className="section-label" htmlFor="proj-name-edit">
+            <label className="section-label" htmlFor="mission-name-edit">
               Name
             </label>
             <input
-              id="proj-name-edit"
+              id="mission-name-edit"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="rounded-md border border-border bg-card px-3 py-2 text-[14px] font-semibold outline-none"
@@ -100,7 +100,7 @@ export function ProjectDetailTabs({
           <div className="sm:w-48 flex flex-col gap-1.5">
             <span className="section-label">Status</span>
             <CustomSelect
-              id="proj-status-detail"
+              id="mission-status-detail"
               value={status}
               onChange={setStatus}
               options={STATUS_META}
@@ -108,7 +108,7 @@ export function ProjectDetailTabs({
           </div>
         </div>
         <PrimaryButton type="button" disabled={pending} loading={pending} onClick={savePrd}>
-          Save project
+          Save mission
         </PrimaryButton>
       </div>
 
@@ -134,9 +134,9 @@ export function ProjectDetailTabs({
         </TabsContent>
 
         <TabsContent value="sprints" className="mt-6 flex flex-col gap-6">
-          <SprintFormInline projectId={project.id} onDone={refresh} />
+          <SprintFormInline missionId={mission.id} onDone={refresh} />
           <div className="grid gap-4 lg:grid-cols-2">
-            {project.sprintsMany.map((sp) => (
+            {mission.sprintsMany.map((sp) => (
               <SprintCard
                 key={sp.id}
                 row={sp}
@@ -152,7 +152,7 @@ export function ProjectDetailTabs({
             <p className="text-[13px] text-muted-foreground">No linked tasks.</p>
           ) : (
             <>
-              {project.sprintsMany.map((sp) => (
+              {mission.sprintsMany.map((sp) => (
                 <section key={sp.id}>
                   <p className="section-label mb-2">{sp.name}</p>
                   <TaskMiniList tasks={tasks.filter((t) => t.sprintId === sp.id)} businessId={businessId} />
@@ -171,8 +171,9 @@ export function ProjectDetailTabs({
         <TabsContent value="approvals" className="mt-6 flex flex-col gap-2">
           {approvalsRows.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              Approvals referencing this project (<code className="text-[11px]">kind: project</code>) will
-              show here once created via orchestration.
+              Approvals referencing this mission (
+              <code className="text-[11px]">kind: mission</code> or legacy{" "}
+              <code className="text-[11px]">kind: project</code>) will show here once created via orchestration.
             </p>
           ) : (
             <div className="flex flex-col gap-2 rounded-md border border-border overflow-hidden">

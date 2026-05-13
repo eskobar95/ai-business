@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import type { projects } from "@/db/schema";
+import type { missions } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
-export type ProjectListItem = typeof projects.$inferSelect & {
+export type MissionListItem = typeof missions.$inferSelect & {
   sprintCount: number;
   taskCount: number;
 };
@@ -24,11 +24,11 @@ function stripHtmlSnippet(html: string, len: number): string {
   return text.length > len ? `${text.slice(0, len)}…` : text;
 }
 
-export function ProjectCard({ row, businessId }: { row: ProjectListItem; businessId: string }) {
+export function MissionCard({ row, businessId }: { row: MissionListItem; businessId: string }) {
   const preview = stripHtmlSnippet(row.prd, 140);
   return (
     <Link
-      href={`/dashboard/projects/${row.id}?businessId=${encodeURIComponent(businessId)}`}
+      href={`/dashboard/missions/${row.id}?businessId=${encodeURIComponent(businessId)}`}
       className={cn(
         "flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card",
         "p-4 transition-all duration-200 hover:border-primary/25 hover:bg-white/[0.02]",

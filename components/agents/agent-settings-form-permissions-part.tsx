@@ -78,14 +78,14 @@ export function AgentSettingsPermissionsSection({
           onChange={(v) => setPermissions((p) => ({ ...p, assignTasks: v }))}
         />
         <PermissionRow
-          label="Can manage projects"
-          description="Create, update and archive projects"
+          label="Can manage missions"
+          description="Create, update and archive missions"
           checked={permissions.manageProjects}
           onChange={(v) => setPermissions((p) => ({ ...p, manageProjects: v }))}
         />
         <PermissionRow
           label="Can assign issues"
-          description="Assign issues to projects and team members"
+          description="Assign issues to missions and team members"
           checked={permissions.assignIssues}
           onChange={(v) => setPermissions((p) => ({ ...p, assignIssues: v }))}
         />

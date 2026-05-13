@@ -3,19 +3,19 @@
 import { and, eq, ne } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
-import { projects, sprints } from "@/db/schema";
+import { missions, sprints } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 
-async function assertProjectAccessForSprint(projectId: string): Promise<void> {
+async function assertMissionAccessForSprint(missionId: string): Promise<void> {
   const userId = await requireSessionUserId();
   const db = getDb();
-  const p = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
+  const m = await db.query.missions.findFirst({
+    where: eq(missions.id, missionId),
     columns: { businessId: true },
   });
-  if (!p) throw new Error("Project not found");
-  await assertUserBusinessAccess(userId, p.businessId);
+  if (!m) throw new Error("Mission not found");
+  await assertUserBusinessAccess(userId, m.businessId);
 }
 
 async function assertSprintAccess(sprintId: string): Promise<string> {
@@ -23,25 +23,25 @@ async function assertSprintAccess(sprintId: string): Promise<string> {
   const db = getDb();
   const sp = await db.query.sprints.findFirst({
     where: eq(sprints.id, sprintId),
-    columns: { projectId: true },
+    columns: { missionId: true },
     with: {
-      project: { columns: { businessId: true } },
+      mission: { columns: { businessId: true } },
     },
   });
-  if (!sp?.project) throw new Error("Sprint not found");
-  await assertUserBusinessAccess(userId, sp.project.businessId);
-  return sp.projectId;
+  if (!sp?.mission) throw new Error("Sprint not found");
+  await assertUserBusinessAccess(userId, sp.mission.businessId);
+  return sp.missionId;
 }
 
-export async function createSprint(projectId: string, data: { name: string; goal?: string }) {
-  await assertProjectAccessForSprint(projectId);
+export async function createSprint(missionId: string, data: { name: string; goal?: string }) {
+  await assertMissionAccessForSprint(missionId);
   const nm = data.name.trim();
   if (!nm) throw new Error("Sprint name is required");
   const db = getDb();
   const [row] = await db
     .insert(sprints)
     .values({
-      projectId,
+      missionId,
       name: nm,
       goal: data.goal?.trim() || null,
     })
@@ -81,16 +81,16 @@ export async function deleteSprint(sprintId: string): Promise<void> {
   await db.delete(sprints).where(eq(sprints.id, sprintId));
 }
 
-/** Sets one sprint `active`; other sprints on the project become `planning` (unless `completed`). */
+/** Sets one sprint `active`; other sprints on the mission become `planning` (unless `completed`). */
 export async function activateSprint(sprintId: string): Promise<void> {
-  const projectId = await assertSprintAccess(sprintId);
+  const missionId = await assertSprintAccess(sprintId);
   const db = getDb();
   await db
     .update(sprints)
     .set({ status: "planning" })
     .where(
       and(
-        eq(sprints.projectId, projectId),
+        eq(sprints.missionId, missionId),
         ne(sprints.id, sprintId),
         ne(sprints.status, "completed"),
       ),

@@ -48,7 +48,7 @@ Workflow: `[.github/workflows/e2e.yml](.github/workflows/e2e.yml)` (job **qualit
 | Behavior                                 | When                                                                                   |
 | ---------------------------------------- | -------------------------------------------------------------------------------------- |
 | **quality** gate                         | Always on PR/`main`: Vitest, ESLint, production build — no DB secrets required.        |
-| Smoke (`/`, sign-in, projects, webhooks)  | Part of Playwright on every run; unauthenticated routes only check HTTP status.        |
+| Smoke (`/`, sign-in, missions redirect, webhooks)  | Part of Playwright on every run; unauthenticated routes only check HTTP status.        |
 | Full Grill-Me (`tests/grill-me.spec.ts`) | Runs when **all** repository secrets below are set; otherwise that spec stays skipped. |
 | Agents (`tests/agents.spec.ts`)          | Needs **`ENCRYPTION_KEY`** (64 hex chars) so MCP install Server Actions can encrypt credentials; without it the MCP badge assertion fails. |
 | Approvals (`tests/approvals.spec.ts`)    | **Optional:** set **`E2E_SETUP_SECRET`**; if missing, that spec is skipped.            |

@@ -267,11 +267,11 @@ export function AppSidebar({
             isActive={isActive("/dashboard/communication")}
           />
           <NavItem
-            href="/dashboard/projects"
-            label="Projects"
+            href="/dashboard/missions"
+            label="Missions"
             icon={FolderKanban}
             collapsed={collapsed}
-            isActive={isActive("/dashboard/projects")}
+            isActive={isActive("/dashboard/missions")}
           />
           <NavItem
             href="/dashboard/approvals"

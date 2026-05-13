@@ -577,9 +577,9 @@ export const agentJobs = pgTable(
   ],
 );
 
-/** Business-scoped initiatives with PRD and sprint breakdown. */
-export const projects = pgTable(
-  "projects",
+/** Business-scoped initiatives with PRD and sprint breakdown (missions). */
+export const missions = pgTable(
+  "missions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     businessId: uuid("business_id")
@@ -595,8 +595,8 @@ export const projects = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("projects_business_id_idx").on(t.businessId),
-    index("projects_status_idx").on(t.status),
+    index("missions_business_id_idx").on(t.businessId),
+    index("missions_status_idx").on(t.status),
   ],
 );
 
@@ -604,9 +604,9 @@ export const sprints = pgTable(
   "sprints",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    missionId: uuid("mission_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => missions.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     goal: text("goal"),
     /** planning | active | completed */
@@ -615,7 +615,7 @@ export const sprints = pgTable(
     endDate: date("end_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("sprints_project_id_idx").on(t.projectId)],
+  (t) => [index("sprints_mission_id_idx").on(t.missionId)],
 );
 
 /** Encrypted MCP credentials library per business; agents opt in via `agent_mcp_access`. */
@@ -769,8 +769,8 @@ export const tasks = pgTable(
     status: taskStatusEnum("status").notNull().default("backlog"),
     priority: text("priority").default("medium"),
     labels: jsonb("labels").$type<string[]>().default([]),
-    project: text("project"),
-    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    mission: text("mission"),
+    missionId: uuid("mission_id").references(() => missions.id, { onDelete: "set null" }),
     sprintId: uuid("sprint_id").references(() => sprints.id, { onDelete: "set null" }),
     storyPoints: integer("story_points"),
     blockedReason: text("blocked_reason"),
@@ -822,7 +822,7 @@ export const tasks = pgTable(
     index("tasks_dependency_task_id_idx").on(t.dependencyTaskId),
     index("tasks_github_repo_installation_id_idx").on(t.githubRepoInstallationId),
     index("tasks_status_idx").on(t.status),
-    index("tasks_project_id_idx").on(t.projectId),
+    index("tasks_mission_id_idx").on(t.missionId),
     index("tasks_sprint_id_idx").on(t.sprintId),
   ],
 );
@@ -877,7 +877,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   mcpCredentialsMany: many(mcpCredentials),
   tasksMany: many(tasks),
   taskRelationsMany: many(taskRelations),
-  projectsMany: many(projects),
+  missionsMany: many(missions),
   gateKindsMany: many(gateKinds),
   communicationEdgesMany: many(communicationEdges),
   agentJobsMany: many(agentJobs),
@@ -894,9 +894,9 @@ export const systemRolesRelations = relations(systemRoles, ({ many }) => ({
   agents: many(agents),
 }));
 
-export const projectsRelations = relations(projects, ({ one, many }) => ({
+export const missionsRelations = relations(missions, ({ one, many }) => ({
   business: one(businesses, {
-    fields: [projects.businessId],
+    fields: [missions.businessId],
     references: [businesses.id],
   }),
   sprintsMany: many(sprints),
@@ -904,9 +904,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 }));
 
 export const sprintsRelations = relations(sprints, ({ one, many }) => ({
-  project: one(projects, {
-    fields: [sprints.projectId],
-    references: [projects.id],
+  mission: one(missions, {
+    fields: [sprints.missionId],
+    references: [missions.id],
   }),
   tasksMany: many(tasks),
 }));
@@ -1128,9 +1128,9 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.approvalId],
     references: [approvals.id],
   }),
-  projectLink: one(projects, {
-    fields: [tasks.projectId],
-    references: [projects.id],
+  missionLink: one(missions, {
+    fields: [tasks.missionId],
+    references: [missions.id],
   }),
   sprint: one(sprints, {
     fields: [tasks.sprintId],

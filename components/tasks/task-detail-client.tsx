@@ -45,7 +45,7 @@ type Props = {
   allAgents: { id: string; name: string }[];
   allTeams: { id: string; name: string }[];
   taskRelations: TaskRelationItem[];
-  allTasks: { id: string; title: string; status: string; priority: string | null; project: string | null }[];
+  allTasks: { id: string; title: string; status: string; priority: string | null; mission: string | null }[];
   dependencyTask: { id: string; title: string; status: string } | null;
   githubInstallations: { id: string; label: string }[];
   integrationBranch: string | null;
@@ -380,7 +380,7 @@ export function TaskDetailClient({
           taskTitle={task.title}
           businessId={businessId}
           labels={(task.labels as string[]) ?? []}
-          project={task.project ?? null}
+          mission={task.mission ?? null}
           approvalId={task.approvalId}
           initialRelations={initialRelations}
           allTasks={allTasks}

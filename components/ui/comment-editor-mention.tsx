@@ -25,7 +25,8 @@ export type MentionItem = {
   type: "agent" | "task";
   status?: string;
   priority?: string;
-  project?: string;
+  /** Display label for task free-text mission field */
+  mission?: string;
 };
 
 type MentionListProps = {
@@ -212,7 +213,10 @@ function MentionChip({ node }: NodeViewProps) {
   const issueId = metaObj.id ?? id;
   const issueTitle = metaObj.label ?? label;
   const issueStatus = metaObj.status ?? "";
-  const issueProject = metaObj.project ?? "";
+  const issueMission =
+    (typeof metaObj.mission === "string" && metaObj.mission) ||
+    (typeof metaObj.project === "string" && metaObj.project) ||
+    "";
   const issuePriority = metaObj.priority ?? "";
   const issueAssignee = metaObj.assignee ?? "";
   const assigneeMonogram = issueAssignee
@@ -237,10 +241,10 @@ function MentionChip({ node }: NodeViewProps) {
             <span className="text-[10px] text-muted-foreground/70">{issueStatus}</span>
           </span>
         ) : null}
-        {issueProject ? (
+        {issueMission ? (
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
             <span>⬡</span>
-            <span>{issueProject}</span>
+            <span>{issueMission}</span>
           </span>
         ) : null}
         {issuePriority ? (
@@ -357,7 +361,8 @@ export function createMentionExtension(mentionItems: MentionItem[]) {
                   type: item.type,
                   status: item.status,
                   priority: item.priority,
-                  project: item.project,
+                  mission: item.mission,
+                  project: item.mission,
                 }),
               },
             },
