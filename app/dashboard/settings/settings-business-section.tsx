@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 import type { SettingsBusinessRow } from "@/lib/settings/actions";
 import { saveBusinessSettings } from "@/lib/settings/actions";
@@ -66,23 +67,69 @@ export function SettingsBusinessSection({
           </p>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="githubRepoUrl" className="label-upper">
-            GitHub repository URL
-          </label>
-          <input
-            id="githubRepoUrl"
-            name="githubRepoUrl"
-            value={githubRepoUrl}
-            onChange={(e) => setGithubRepoUrl(e.target.value)}
-            className="h-9 rounded-md border border-border bg-white/[0.04] px-3 text-[13px] text-foreground/80 placeholder:text-muted-foreground/30 focus:border-white/[0.16] focus:outline-none transition-colors disabled:opacity-50"
-            placeholder="https://github.com/org/repo"
-            disabled={businessPending}
-          />
-          <p className="text-muted-tier-faint text-[11px]">
-            Full HTTPS URL to the GitHub repository for this workspace.
-          </p>
-        </div>
+        {business.githubInstallation ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="label-upper">GitHub repositories</span>
+            <div className="rounded-md border border-border bg-white/[0.02] px-3 py-2">
+              {(() => {
+                const inst = business.githubInstallation!;
+                const active = inst.selectedRepos.length > 0 ? inst.selectedRepos : inst.repos;
+                if (active.length === 0) {
+                  return (
+                    <p className="text-[12px] text-muted-foreground">
+                      No repositories selected.
+                    </p>
+                  );
+                }
+                return (
+                  <ul className="space-y-0.5">
+                    {active.slice(0, 8).map((r) => (
+                      <li key={r} className="font-mono text-[12px] text-foreground/80">{r}</li>
+                    ))}
+                    {active.length > 8 && (
+                      <li className="text-[11px] text-muted-foreground">+{active.length - 8} more</li>
+                    )}
+                  </ul>
+                );
+              })()}
+            </div>
+            <p className="text-[11px] text-muted-foreground/60">
+              Managed in{" "}
+              <Link
+                href={`/dashboard/settings?businessId=${businessId}&section=integrations`}
+                className="text-primary hover:underline"
+              >
+                Settings → Integrations
+              </Link>
+              . The first selected repo is used for Grill-Me reasoning.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="githubRepoUrl" className="label-upper">
+              GitHub repository URL
+            </label>
+            <input
+              id="githubRepoUrl"
+              name="githubRepoUrl"
+              value={githubRepoUrl}
+              onChange={(e) => setGithubRepoUrl(e.target.value)}
+              className="h-9 rounded-md border border-border bg-white/[0.04] px-3 text-[13px] text-foreground/80 placeholder:text-muted-foreground/30 focus:border-white/[0.16] focus:outline-none transition-colors disabled:opacity-50"
+              placeholder="https://github.com/org/repo"
+              disabled={businessPending}
+            />
+            <p className="text-[11px] text-muted-foreground/60">
+              Used for Grill-Me reasoning until GitHub App is connected.{" "}
+              <Link
+                href={`/dashboard/settings?businessId=${businessId}&section=integrations`}
+                className="text-primary hover:underline"
+              >
+                Connect GitHub App
+              </Link>{" "}
+              to manage multiple repos.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="description" className="label-upper">

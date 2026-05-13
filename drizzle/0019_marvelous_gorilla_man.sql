@@ -1,0 +1,1 @@
+ALTER TABLE "github_installations" ADD COLUMN "selected_repos" jsonb;

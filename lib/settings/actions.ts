@@ -3,7 +3,7 @@
 import { verifyCursorApiKey } from "@/lib/cursor/verify-api-key";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { getDb } from "@/db/index";
-import { businesses, memory, userBusinesses, userSettings } from "@/db/schema";
+import { businesses, githubInstallations, githubInstallationSelectedRepos, memory, userBusinesses, userSettings } from "@/db/schema";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { encryptCredential } from "@/lib/mcp/encryption";
@@ -151,6 +151,13 @@ export type SettingsBusinessRow = {
   defaultCursorModelId: string | null;
   defaultCursorThinkingEffort: string | null;
   memorySections: Array<{ id: string; content: string; updatedAt: Date }>;
+  /** Repos from GitHub App installation (available + selected). Null if not connected. */
+  githubInstallation: {
+    repos: string[];
+    /** Explicitly selected repos from child table. Empty = no selection → fall back to all repos. */
+    selectedRepos: string[];
+    accountLogin: string;
+  } | null;
 };
 
 /**
@@ -187,6 +194,45 @@ export async function getSettingsPageState(): Promise<{
 
   const businessIds = rows.map((r) => r.id);
 
+  const installationRows =
+    businessIds.length > 0
+      ? await db
+          .select({
+            id: githubInstallations.id,
+            businessId: githubInstallations.businessId,
+            repos: githubInstallations.repos,
+            accountLogin: githubInstallations.accountLogin,
+          })
+          .from(githubInstallations)
+          .where(inArray(githubInstallations.businessId, businessIds))
+      : [];
+
+  const installationIds = installationRows.map((i) => i.id);
+  const selectedRepoRows =
+    installationIds.length > 0
+      ? await db
+          .select({
+            installationId: githubInstallationSelectedRepos.installationId,
+            repoUrl: githubInstallationSelectedRepos.repoUrl,
+          })
+          .from(githubInstallationSelectedRepos)
+          .where(inArray(githubInstallationSelectedRepos.installationId, installationIds))
+      : [];
+
+  const selectedReposByInstallation = new Map<string, string[]>();
+  for (const row of selectedRepoRows) {
+    const list = selectedReposByInstallation.get(row.installationId) ?? [];
+    list.push(row.repoUrl);
+    selectedReposByInstallation.set(row.installationId, list);
+  }
+
+  const installationByBusiness = new Map(
+    installationRows.map((i) => [i.businessId, {
+      ...i,
+      selectedRepos: selectedReposByInstallation.get(i.id) ?? [],
+    }]),
+  );
+
   const memoryRows =
     businessIds.length > 0
       ? await db
@@ -217,11 +263,17 @@ export async function getSettingsPageState(): Promise<{
     memoryByBusiness.set(m.businessId, list);
   }
 
-  const businessRows: SettingsBusinessRow[] = rows.map((r) => ({
-    ...r,
-    websiteUrl: null, // not yet in DB schema
-    memorySections: memoryByBusiness.get(r.id) ?? [],
-  }));
+  const businessRows: SettingsBusinessRow[] = rows.map((r) => {
+    const inst = installationByBusiness.get(r.id);
+    return {
+      ...r,
+      websiteUrl: null, // not yet in DB schema
+      memorySections: memoryByBusiness.get(r.id) ?? [],
+      githubInstallation: inst
+        ? { repos: inst.repos, selectedRepos: inst.selectedRepos, accountLogin: inst.accountLogin }
+        : null,
+    };
+  });
 
   return { hasCursorApiKey, businesses: businessRows };
 }

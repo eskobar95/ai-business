@@ -1,6 +1,6 @@
 import { getDb } from "@/db/index";
 import type { GithubInstallationPublic } from "@/lib/github/github-types";
-import { getGithubInstallationByBusiness } from "@/lib/github/installation-db";
+import { getGithubInstallationByBusiness, getSelectedReposByInstallation } from "@/lib/github/installation-db";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 
@@ -14,11 +14,14 @@ export async function fetchGithubInstallationForBusiness(
   const row = await getGithubInstallationByBusiness(db, businessId);
   if (!row) return null;
 
+  const selectedRepos = await getSelectedReposByInstallation(db, row.id);
+
   return {
     installationId: row.installationId,
     accountLogin: row.accountLogin,
     accountType: row.accountType,
     repos: row.repos,
+    selectedRepos: selectedRepos.length > 0 ? selectedRepos : null,
     updatedAt: row.updatedAt,
   };
 }

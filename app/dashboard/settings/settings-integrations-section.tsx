@@ -1,4 +1,5 @@
 import { GithubDisconnectButton } from "@/app/dashboard/settings/github-disconnect-button";
+import { GithubRepoSelector } from "@/app/dashboard/settings/github-repo-selector";
 import { fetchGithubInstallationForBusiness } from "@/lib/github/installation-queries";
 import { cn } from "@/lib/utils";
 
@@ -73,22 +74,20 @@ export async function SettingsIntegrationsSection({
                 Installation ID:{" "}
                 <span className="text-foreground font-mono">{row?.installationId}</span>
               </p>
-              <div>
-                <p className="text-muted-foreground mb-1">
-                  Repositories ({row?.repos.length ?? 0} shown):
-                </p>
-                <ul className="font-mono text-[11px] leading-relaxed text-foreground">
-                  {(row?.repos ?? []).slice(0, 12).map((r) => (
-                    <li key={r}>{r}</li>
-                  ))}
-                  {(row?.repos?.length ?? 0) > 12 ?
-                    <li className="text-muted-foreground">…</li>
-                  : null}
-                  {(row?.repos?.length ?? 0) === 0 ?
-                    <li className="text-muted-foreground">No repos reported yet.</li>
-                  : null}
-                </ul>
-              </div>
+              {(row?.repos?.length ?? 0) > 0 ? (
+                <div className="pt-1">
+                  <p className="text-muted-foreground font-medium">
+                    Repositories ({row!.repos.length} available via GitHub App)
+                  </p>
+                  <GithubRepoSelector
+                    businessId={businessId}
+                    allRepos={row!.repos}
+                    initialSelected={(row?.selectedRepos?.length ?? 0) > 0 ? row!.selectedRepos : null}
+                  />
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No repos reported yet. Try reconfiguring on GitHub.</p>
+              )}
             </>
           : <p className="text-muted-foreground">
               Connect installs the GitHub App for this workspace. You will grant repository access from

@@ -14,7 +14,7 @@
   },
   "sha256": {
     "teams": "fddb5ad138a64e285e281f9d684fe98e3f5b55bcca94fb6340e1a27370be95d7",
-    "agents": "c7d1bec774e154a5eadd5f559dc211c5f60189ccef4103ea91c0e7d345f60d79",
+    "agents": "5f9feb3e54094bec889ab95dd171790de2306502b6d430eef990e1416d55f6fb",
     "gates": "fee0dddad4b8d4cb5052c6266f4fd9b295a39cd4b9a867fe54aae4a89e26bf10",
     "communication_policy": "3a7eb1858c7b17ce253112bde046f88a3d4def90c8cafdcc7b787d0b12aee708",
     "errors_registry": "0faf971a54e21b2757b339686dad71bee1c8f8d32fc30b9f2e5beaafbf47ddd1"

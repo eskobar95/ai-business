@@ -103,5 +103,8 @@
   },
   "overrides": {
     "import-in-the-middle": "3.0.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.60.3"
   }
 }

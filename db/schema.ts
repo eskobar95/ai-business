@@ -498,6 +498,26 @@ export const githubInstallations = pgTable(
   ],
 );
 
+/**
+ * User-selected subset of repos for an installation.
+ * Empty table = no explicit selection → agents fall back to all repos from the parent installation.
+ */
+export const githubInstallationSelectedRepos = pgTable(
+  "github_installation_selected_repos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    installationId: uuid("installation_id")
+      .notNull()
+      .references(() => githubInstallations.id, { onDelete: "cascade" }),
+    repoUrl: text("repo_url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("github_install_selected_repos_unique").on(t.installationId, t.repoUrl),
+    index("github_install_selected_repos_installation_idx").on(t.installationId),
+  ],
+);
+
 /** RunPod lifecycle row for the orchestrator (single logical instance via `slug`). */
 export const runpodInstanceStateEnum = pgEnum("runpod_instance_state", [
   "cold",
