@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SignedIn, SignedOut } from "@neondatabase/auth/react";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 import { SidebarTeamsGroup } from "@/components/sidebar-teams-group";
@@ -119,7 +120,9 @@ export function AppSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
+  const [flyoutPos, setFlyoutPos] = useState<{ top: number; left: number } | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const switchTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -222,10 +225,19 @@ export function AppSidebar({
                 <>
                   <div className="relative">
                     <button
+                      ref={switchTriggerRef}
                       type="button"
-                      onMouseEnter={() => setSwitchOpen(true)}
+                      onMouseEnter={() => {
+                        const rect = switchTriggerRef.current?.getBoundingClientRect();
+                        if (rect) setFlyoutPos({ top: rect.top, left: rect.right + 4 });
+                        setSwitchOpen(true);
+                      }}
                       onMouseLeave={() => setSwitchOpen(false)}
-                      onClick={() => setSwitchOpen((o) => !o)}
+                      onClick={() => {
+                        const rect = switchTriggerRef.current?.getBoundingClientRect();
+                        if (rect) setFlyoutPos({ top: rect.top, left: rect.right + 4 });
+                        setSwitchOpen((o) => !o);
+                      }}
                       className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
                     >
                       <Share2 className="size-3.5 shrink-0" />
@@ -233,10 +245,11 @@ export function AppSidebar({
                       <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
                     </button>
 
-                    {/* Flyout panel — appears to the right */}
-                    {switchOpen && (
+                    {/* Flyout rendered via portal so it escapes overflow-hidden */}
+                    {switchOpen && flyoutPos && hydrated && createPortal(
                       <div
-                        className="absolute top-0 left-full z-[60] ml-1 w-56 rounded-md border border-border bg-popover p-1 shadow-xl shadow-black/40"
+                        className="fixed z-[200] w-56 rounded-md border border-border bg-popover p-1 shadow-xl shadow-black/40"
+                        style={{ top: flyoutPos.top, left: flyoutPos.left }}
                         onMouseEnter={() => setSwitchOpen(true)}
                         onMouseLeave={() => setSwitchOpen(false)}
                       >
@@ -259,7 +272,8 @@ export function AppSidebar({
                             </Link>
                           ))}
                         </div>
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                   <div className="my-1 border-t border-white/[0.06]" />
