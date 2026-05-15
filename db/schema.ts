@@ -893,6 +893,8 @@ export const chatSessions = pgTable(
   ],
 );
 
+export const chatMessageRoleEnum = pgEnum("chat_message_role", ["user", "assistant"]);
+
 export const chatMessages = pgTable(
   "chat_messages",
   {
@@ -900,7 +902,7 @@ export const chatMessages = pgTable(
     sessionId: uuid("session_id")
       .notNull()
       .references(() => chatSessions.id, { onDelete: "cascade" }),
-    role: text("role").$type<"user" | "assistant">().notNull(),
+    role: chatMessageRoleEnum("role").notNull(),
     content: text("content").notNull(),
     /** JSON metadata: { type: "text"|"thinking"|"artifact"|"questions"|"stage", ... } */
     metadata: jsonb("metadata"),

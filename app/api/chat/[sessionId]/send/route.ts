@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { Agent } from "@cursor/sdk";
-import { asc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
 import { agents, chatMessages, chatSessions } from "@/db/schema";
@@ -37,10 +37,17 @@ export async function POST(
   const message = typeof body.message === "string" ? body.message : "";
   const businessId = typeof body.businessId === "string" ? body.businessId.trim() : "";
 
+  const MAX_MESSAGE_CHARS = 8_000;
   if (!message.trim() || !businessId) {
     return new Response(JSON.stringify({ error: "Missing message or businessId" }), {
       status: 400,
     });
+  }
+  if (message.length > MAX_MESSAGE_CHARS) {
+    return new Response(
+      JSON.stringify({ error: `Message exceeds maximum length of ${MAX_MESSAGE_CHARS} characters` }),
+      { status: 400 },
+    );
   }
 
   try {
@@ -82,12 +89,15 @@ export async function POST(
     );
   }
 
-  const prevMessages = await db
-    .select({ role: chatMessages.role, content: chatMessages.content })
-    .from(chatMessages)
-    .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(asc(chatMessages.createdAt))
-    .limit(20);
+  // Fetch the most recent 20 messages (desc), then reverse to chronological order for the prompt.
+  const prevMessages = (
+    await db
+      .select({ role: chatMessages.role, content: chatMessages.content })
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, sessionId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(20)
+  ).reverse();
 
   await db.insert(chatMessages).values({ sessionId, role: "user", content: message });
   await db.update(chatSessions).set({ updatedAt: new Date() }).where(eq(chatSessions.id, sessionId));
@@ -104,6 +114,7 @@ export async function POST(
 
   const encoder = new TextEncoder();
   let assistantContent = "";
+  let runCompleted = false;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -118,7 +129,6 @@ export async function POST(
       };
 
       let cursorAgent: Awaited<ReturnType<typeof Agent.create>> | null = null;
-
       try {
         cursorAgent = session.cursorAgentId
           ? await Agent.resume(session.cursorAgentId, agentOptions)
@@ -149,26 +159,31 @@ export async function POST(
           }
         }
 
-        await run.wait();
-        send("done", {});
+        const result = await run.wait();
+        if (result.status === "finished") {
+          runCompleted = true;
+          send("done", {});
+        } else {
+          send("error", { message: `Run ended with status: ${result.status}` });
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         send("error", { message: msg });
       } finally {
         if (cursorAgent) {
-          try {
-            await cursorAgent[Symbol.asyncDispose]();
-          } catch {
-            /* ignore */
-          }
+          try { await cursorAgent[Symbol.asyncDispose](); } catch { /* ignore */ }
         }
-        if (assistantContent.trim()) {
+        // Only persist if the run actually completed — avoid storing truncated turns as authoritative history
+        if (runCompleted && assistantContent.trim()) {
           await db.insert(chatMessages).values({
             sessionId,
             role: "assistant",
             content: assistantContent,
           });
-          await db.update(chatSessions).set({ updatedAt: new Date() }).where(eq(chatSessions.id, sessionId));
+          await db
+            .update(chatSessions)
+            .set({ updatedAt: new Date() })
+            .where(eq(chatSessions.id, sessionId));
         }
         controller.close();
       }

@@ -53,14 +53,21 @@ export async function updateSessionCursorAgentId(
     .where(eq(chatSessions.id, sessionId));
 }
 
-/** Save a message to the DB. */
+/** Save a message to the DB. Caller must own the session's business. */
 export async function saveChatMessage(
   sessionId: string,
   role: "user" | "assistant",
   content: string,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
+  await requireSessionUserId();
   const db = getDb();
+  const session = await db.query.chatSessions.findFirst({
+    where: eq(chatSessions.id, sessionId),
+    columns: { businessId: true },
+  });
+  if (!session) throw new Error("Session not found");
+  await ensureBusiness(session.businessId);
   await db.insert(chatMessages).values({
     sessionId,
     role,

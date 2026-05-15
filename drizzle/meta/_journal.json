@@ -183,6 +183,13 @@
       "when": 1778870268523,
       "tag": "0025_acoustic_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1778871908479,
+      "tag": "0026_supreme_kylun",
+      "breakpoints": true
     }
   ]
 }
