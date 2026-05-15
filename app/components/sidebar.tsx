@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowLeftRight,
   BookOpen,
   Bot,
   Check,
@@ -118,6 +119,7 @@ export function AppSidebar({
   const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -150,6 +152,7 @@ export function AppSidebar({
         !workspaceRef.current.contains(e.target as Node)
       ) {
         setWorkspaceOpen(false);
+        setSwitchOpen(false);
       }
     }
     if (workspaceOpen) {
@@ -215,26 +218,51 @@ export function AppSidebar({
                 </div>
               )}
 
-              {/* Switch workspace — list of all businesses */}
+              {/* Switch workspace — flyout trigger */}
               {allBusinesses.length > 1 && (
                 <>
-                  <p className="section-label px-2 pb-1 pt-1.5">Switch workspace</p>
-                  {allBusinesses.map((b) => (
-                    <Link
-                      key={b.id}
-                      href={`/dashboard?businessId=${encodeURIComponent(b.id)}`}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
-                      onClick={() => setWorkspaceOpen(false)}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setSwitchOpen(true)}
+                      onMouseLeave={() => setSwitchOpen(false)}
+                      onClick={() => setSwitchOpen((o) => !o)}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-white/[0.10] text-[8px] font-bold text-foreground/60">
-                        {b.name.slice(0, 2).toUpperCase()}
-                      </span>
-                      <span className="flex-1 truncate">{b.name}</span>
-                      {b.id === businessId && (
-                        <Check className="size-3 shrink-0 text-primary" />
-                      )}
-                    </Link>
-                  ))}
+                      <ArrowLeftRight className="size-3.5 shrink-0" />
+                      <span className="flex-1 text-left">Switch workspace</span>
+                      <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+                    </button>
+
+                    {/* Flyout panel — appears to the right */}
+                    {switchOpen && (
+                      <div
+                        className="absolute top-0 left-full z-[60] ml-1 w-56 rounded-md border border-border bg-popover p-1 shadow-xl shadow-black/40"
+                        onMouseEnter={() => setSwitchOpen(true)}
+                        onMouseLeave={() => setSwitchOpen(false)}
+                      >
+                        <p className="section-label px-2 pb-1 pt-1.5">Workspaces</p>
+                        <div className="max-h-72 overflow-y-auto">
+                          {allBusinesses.map((b) => (
+                            <Link
+                              key={b.id}
+                              href={`/dashboard?businessId=${encodeURIComponent(b.id)}`}
+                              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
+                              onClick={() => { setWorkspaceOpen(false); setSwitchOpen(false); }}
+                            >
+                              <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-white/[0.10] text-[8px] font-bold text-foreground/60">
+                                {b.name.slice(0, 2).toUpperCase()}
+                              </span>
+                              <span className="flex-1 truncate">{b.name}</span>
+                              {b.id === businessId && (
+                                <Check className="size-3 shrink-0 text-primary" />
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="my-1 border-t border-white/[0.06]" />
                 </>
               )}
