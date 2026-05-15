@@ -3,7 +3,14 @@
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { assertUserOwnsAgent } from "@/lib/agents/actions";
 import { getDb } from "@/db/index";
-import { approvals, businesses, githubInstallations, tasks, taskRelations } from "@/db/schema";
+import {
+  approvals,
+  businesses,
+  githubInstallations,
+  tasks,
+  taskRelations,
+  teams,
+} from "@/db/schema";
 import { logEvent } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
@@ -281,13 +288,29 @@ export async function deleteTask(taskId: string): Promise<void> {
   await db.delete(tasks).where(inArray(tasks.id, deleteOrder));
 }
 
-export async function getTasksByBusiness(businessId: string): Promise<TaskTreeNode[]> {
+export async function getTasksByBusiness(
+  businessId: string,
+  teamId?: string,
+): Promise<TaskTreeNode[]> {
   const userId = await requireSessionUserId();
   await assertUserBusinessAccess(userId, businessId);
 
   const db = getDb();
+
+  if (teamId) {
+    const team = await db.query.teams.findFirst({
+      where: and(eq(teams.id, teamId), eq(teams.businessId, businessId)),
+      columns: { id: true },
+    });
+    if (!team) {
+      throw new Error("Team not found for this business");
+    }
+  }
+
   const rows = await db.query.tasks.findMany({
-    where: eq(tasks.businessId, businessId),
+    where: teamId
+      ? and(eq(tasks.businessId, businessId), eq(tasks.teamId, teamId))
+      : eq(tasks.businessId, businessId),
     orderBy: [asc(tasks.createdAt)],
   });
 
