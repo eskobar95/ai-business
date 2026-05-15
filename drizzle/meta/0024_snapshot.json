@@ -1,6 +1,6 @@
 {
-  "id": "885e93f8-a588-4622-b1b0-34581df2de95",
-  "prevId": "e6175a6b-e9bd-48c2-88a3-1ee40397e8a4",
+  "id": "a6cb0251-7cbc-449d-b4f9-8398ad988a56",
+  "prevId": "885e93f8-a588-4622-b1b0-34581df2de95",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2172,6 +2172,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'draft'"
+        },
+        "validation_contract": {
+          "name": "validation_contract",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "project_type": {
+          "name": "project_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'new_project'"
         },
         "notion_id": {
           "name": "notion_id",
