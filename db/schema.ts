@@ -871,6 +871,44 @@ export const taskRelations = pgTable(
   ],
 );
 
+export const chatSessions = pgTable(
+  "chat_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("New chat"),
+    /** Cursor SDK agent ID — used to resume the conversation across requests */
+    cursorAgentId: text("cursor_agent_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("chat_sessions_business_id_idx").on(t.businessId),
+    index("chat_sessions_agent_id_idx").on(t.agentId),
+  ],
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    role: text("role").$type<"user" | "assistant">().notNull(),
+    content: text("content").notNull(),
+    /** JSON metadata: { type: "text"|"thinking"|"artifact"|"questions"|"stage", ... } */
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("chat_messages_session_id_idx").on(t.sessionId)],
+);
+
 // --- Relations ---
 
 export const businessesRelations = relations(businesses, ({ many }) => ({
@@ -891,6 +929,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   communicationEdgesMany: many(communicationEdges),
   agentJobsMany: many(agentJobs),
   routinesMany: many(routines),
+  chatSessionsMany: many(chatSessions),
 }));
 
 export const userSettingsRelations = relations(userSettings, () => ({}));
@@ -955,6 +994,7 @@ export const agentsRelations = relations(agents, ({ one, many }) => ({
   approvals: many(approvals),
   tasksAssigned: many(tasks),
   routinesMany: many(routines),
+  chatSessionsMany: many(chatSessions),
 }));
 
 export const agentDocumentsRelations = relations(agentDocuments, ({ one }) => ({
@@ -1171,5 +1211,24 @@ export const taskRelationsRelations = relations(taskRelations, ({ one }) => ({
     fields: [taskRelations.toTaskId],
     references: [tasks.id],
     relationName: "task_relations_to",
+  }),
+}));
+
+export const chatSessionsRelations = relations(chatSessions, ({ one, many }) => ({
+  business: one(businesses, {
+    fields: [chatSessions.businessId],
+    references: [businesses.id],
+  }),
+  agent: one(agents, {
+    fields: [chatSessions.agentId],
+    references: [agents.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  session: one(chatSessions, {
+    fields: [chatMessages.sessionId],
+    references: [chatSessions.id],
   }),
 }));

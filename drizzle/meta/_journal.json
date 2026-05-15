@@ -176,6 +176,13 @@
       "when": 1778856587161,
       "tag": "0024_black_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1778870268523,
+      "tag": "0025_acoustic_jigsaw",
+      "breakpoints": true
     }
   ]
 }
