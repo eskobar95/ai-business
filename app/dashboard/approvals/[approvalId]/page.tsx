@@ -1,10 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EMDecomposeButton } from "./em-decompose-button";
 import { getApprovalDetailForUser } from "@/lib/approvals/queries";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 
 export const dynamic = "force-dynamic";
+
+function shouldShowEngineeringManagerDecompose(row: {
+  approvalStatus: "pending" | "approved" | "rejected";
+  artifactRef: Record<string, unknown>;
+}): boolean {
+  if (row.approvalStatus !== "approved") return false;
+  const sprintId = row.artifactRef["sprintId"];
+  if (typeof sprintId !== "string" || !sprintId.trim()) return false;
+
+  const artifactType = row.artifactRef["artifactType"];
+  if (artifactType !== undefined && artifactType !== "po_sprint_brief") return false;
+
+  return true;
+}
 
 export default async function ApprovalDetailPage({
   params,
@@ -71,6 +86,13 @@ export default async function ApprovalDetailPage({
             {JSON.stringify(row.artifactRef, null, 2)}
           </pre>
         </div>
+
+        {shouldShowEngineeringManagerDecompose(row) ? (
+          <div className="border-border rounded-lg border p-4">
+            <h2 className="mb-3 text-sm font-medium">Engineering handoff</h2>
+            <EMDecomposeButton approvalId={row.id} businessId={businessId} />
+          </div>
+        ) : null}
       </article>
     </div>
   );
