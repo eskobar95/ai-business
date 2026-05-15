@@ -9,10 +9,9 @@ import {
   userBusinesses,
 } from "@/db/schema";
 import { countPendingApprovalsForUser } from "@/lib/approvals/queries";
-import { getAgentStatus } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { getTaskCountsForUserBusinesses } from "@/lib/tasks/dashboard-queries";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 
 export type DashboardSummaryStats = {
   tasksInProgress: number;
@@ -51,14 +50,20 @@ export async function getDashboardSummaryStats(userId: string): Promise<Dashboar
     .where(eq(userBusinesses.userId, userId));
 
   let activeAgents = 0;
-  await Promise.all(
-    agentRows.map(async (r) => {
-      const s = await getAgentStatus(r.id);
-      if (s === "working") {
-        activeAgents++;
-      }
-    }),
-  );
+  if (agentRows.length > 0) {
+    // Single batch query — latest lifecycle event per agent via DISTINCT ON.
+    // Avoids N+1 concurrent Neon HTTP calls that exhaust the serverless pool.
+    const agentIds = agentRows.map((r) => r.id);
+    const result = await db.execute<{ agent_id: string; lifecycle_status: string | null }>(sql`
+      SELECT DISTINCT ON (payload->>'agentId')
+        payload->>'agentId'          AS agent_id,
+        payload->>'lifecycleStatus'  AS lifecycle_status
+      FROM ${orchestrationEvents}
+      WHERE payload->>'agentId' = ANY(ARRAY[${sql.join(agentIds.map((id) => sql`${id}`), sql`, `)}])
+      ORDER BY payload->>'agentId', created_at DESC
+    `);
+    activeAgents = result.rows.filter((r) => r.lifecycle_status === "working").length;
+  }
 
   return { tasksInProgress, blockedTasks, pendingApprovals, activeAgents };
 }
