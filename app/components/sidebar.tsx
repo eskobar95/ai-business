@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeftRight,
   BookOpen,
   Bot,
   Check,
@@ -229,7 +228,7 @@ export function AppSidebar({
                       onClick={() => setSwitchOpen((o) => !o)}
                       className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
                     >
-                      <ArrowLeftRight className="size-3.5 shrink-0" />
+                      <Share2 className="size-3.5 shrink-0" />
                       <span className="flex-1 text-left">Switch workspace</span>
                       <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
                     </button>
