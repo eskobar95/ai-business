@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { SignedIn, SignedOut } from "@neondatabase/auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 
 import { cn } from "@/lib/utils";
 import { SidebarTeamsGroup } from "@/components/sidebar-teams-group";
@@ -284,11 +284,13 @@ export function AppSidebar({
         </div>
 
         {/* Teams section — SidebarTeamsGroup renders its own "YOUR TEAMS" label */}
-        <SidebarTeamsGroup
-          teams={teams}
-          businessId={businessId}
-          collapsed={collapsed}
-        />
+        <Suspense fallback={null}>
+          <SidebarTeamsGroup
+            teams={teams}
+            businessId={businessId}
+            collapsed={collapsed}
+          />
+        </Suspense>
 
         {/* Workspace section */}
         {!collapsed && (

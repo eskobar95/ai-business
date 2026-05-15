@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { CheckSquare, ChevronRight, Folder, Plus, Users } from "lucide-react";
 import { useState } from "react";
 
@@ -19,6 +19,8 @@ export function SidebarTeamsGroup({
   collapsed: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlTeamId = searchParams.get("teamId");
   const anyTeamActive = teams.some((t) =>
     pathname.startsWith(`/dashboard/teams/${t.id}`)
   );
@@ -68,11 +70,10 @@ export function SidebarTeamsGroup({
           ? `/dashboard/teams/${team.id}?businessId=${encodeURIComponent(businessId)}`
           : `/dashboard/teams/${team.id}`;
         const tasksHref = businessId
-          ? `/dashboard/tasks?businessId=${encodeURIComponent(businessId)}`
-          : `/dashboard/tasks`;
-        const isTasksActive =
-          pathname === "/dashboard/tasks" ||
-          pathname.startsWith("/dashboard/tasks/");
+          ? `/dashboard/tasks?businessId=${encodeURIComponent(businessId)}&teamId=${encodeURIComponent(team.id)}`
+          : `/dashboard/tasks?teamId=${encodeURIComponent(team.id)}`;
+        const isThisTeamTasksActive =
+          pathname === "/dashboard/tasks" && urlTeamId === team.id;
 
         return (
           <div key={team.id}>
@@ -139,7 +140,7 @@ export function SidebarTeamsGroup({
                     href={tasksHref}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors duration-150",
-                      isTasksActive
+                      isThisTeamTasksActive
                         ? "bg-white/[0.06] text-foreground/80"
                         : "text-foreground/50 hover:bg-white/[0.04] hover:text-foreground/75",
                     )}
