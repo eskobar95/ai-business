@@ -13,25 +13,51 @@ export type CanvasNodeRect = {
   height: number;
 };
 
-function midpointRight(r: CanvasNodeRect): { x: number; y: number } {
-  return { x: r.left + r.width, y: r.top + r.height / 2 };
-}
+type Pt = { x: number; y: number };
 
-function midpointLeft(r: CanvasNodeRect): { x: number; y: number } {
-  return { x: r.left, y: r.top + r.height / 2 };
-}
+function midRight(r: CanvasNodeRect): Pt { return { x: r.left + r.width, y: r.top + r.height / 2 }; }
+function midLeft(r: CanvasNodeRect): Pt  { return { x: r.left,            y: r.top + r.height / 2 }; }
 
-function bezierPath(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  offset: number,
+/**
+ * Chooses the shortest sensible route between two nodes:
+ * - Cross-column: exits the inner side of A, enters the inner side of B (clean horizontal bezier).
+ * - Same-column:  exits the outer side of both nodes, curves around on the outside (no crossing
+ *   through the canvas centre).
+ *
+ * `yOffset` nudges bidirectional parallel legs slightly apart so they don't sit on top of each other.
+ */
+function smartPath(
+  a: CanvasNodeRect,
+  b: CanvasNodeRect,
+  canvasWidth: number,
+  yOffset = 0,
 ): string {
-  const dx = Math.max(48, Math.abs(to.x - from.x) * 0.45);
-  const cy1 = from.y + offset;
-  const cy2 = to.y + offset;
-  const c1x = from.x + dx;
-  const c2x = to.x - dx;
-  return `M ${from.x} ${from.y} C ${c1x} ${cy1}, ${c2x} ${cy2}, ${to.x} ${to.y}`;
+  const mid = canvasWidth / 2;
+  const aIsLeft = a.left + a.width / 2 < mid;
+  const bIsLeft = b.left + b.width / 2 < mid;
+
+  if (aIsLeft !== bIsLeft) {
+    // ── Cross-column ──────────────────────────────────────────────────
+    const from: Pt = aIsLeft ? midRight(a) : midLeft(a);
+    const to:   Pt = bIsLeft ? midRight(b) : midLeft(b);
+    const f = { x: from.x, y: from.y + yOffset };
+    const t = { x: to.x,   y: to.y   + yOffset };
+    const dx = Math.max(56, Math.abs(t.x - f.x) * 0.38);
+    const cx1 = f.x + (aIsLeft ?  dx : -dx);
+    const cx2 = t.x + (bIsLeft ?  dx : -dx);
+    return `M ${f.x} ${f.y} C ${cx1} ${f.y}, ${cx2} ${t.y}, ${t.x} ${t.y}`;
+  } else {
+    // ── Same-column: route outward ────────────────────────────────────
+    const goLeft = aIsLeft; // product lanes exit left; build lanes exit right
+    const from: Pt = goLeft ? midLeft(a)  : midRight(a);
+    const to:   Pt = goLeft ? midLeft(b)  : midRight(b);
+    const f = { x: from.x, y: from.y + yOffset };
+    const t = { x: to.x,   y: to.y   + yOffset };
+    // Pull control points 52 px outward so the curve stays outside the column
+    const margin = 52;
+    const cx = goLeft ? Math.min(f.x, t.x) - margin : Math.max(f.x, t.x) + margin;
+    return `M ${f.x} ${f.y} C ${cx} ${f.y}, ${cx} ${t.y}, ${t.x} ${t.y}`;
+  }
 }
 
 export type CanvasEdgesSvgProps = {
@@ -63,26 +89,17 @@ export function CanvasEdgesSvg({
       const a = positions[edge.fromRole];
       const b = positions[edge.toRole];
       if (!a || !b) continue;
-      const from = midpointRight(a);
-      const to = midpointLeft(b);
       const selected = selectedEdgeId === edge.id;
       if (edge.direction === "bidirectional") {
-        fwd.push({
-          id: edge.id,
-          d: bezierPath(from, to, -3),
-          selected,
-        });
-        back.push({
-          id: `${edge.id}-rev`,
-          d: bezierPath(to, from, 3),
-          selected,
-        });
+        // Nudge the two legs 4 px apart in Y so they don't overlap
+        fwd.push({ id: edge.id,         d: smartPath(a, b, width, -4), selected });
+        back.push({ id: `${edge.id}-rev`, d: smartPath(b, a, width,  4), selected });
       } else {
-        fwd.push({ id: edge.id, d: bezierPath(from, to, 0), selected });
+        fwd.push({ id: edge.id, d: smartPath(a, b, width, 0), selected });
       }
     }
     return { forwardPaths: fwd, backwardPaths: back };
-  }, [edges, positions, selectedEdgeId]);
+  }, [edges, positions, selectedEdgeId, width]);
 
   if (width <= 0 || height <= 0) return null;
 
