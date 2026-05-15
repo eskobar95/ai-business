@@ -24,8 +24,8 @@ npm-debug.log*
 /playwright-report/
 /blob-report/
 
-# apm parallel worktrees (local only)
-.apm/worktrees/
+# parallel worktrees (local only — git worktree add .worktrees/<name> <branch>)
+.worktrees/
 
 # local PI / IDE tooling (do not commit)
 .pi/
