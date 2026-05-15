@@ -40,7 +40,7 @@ function AgentNode({ id, data }: NodeProps) {
     <div
       data-testid={`org-node-${id}`}
       className={cn(
-        "min-w-[160px] rounded-lg border px-4 py-3 shadow-lg transition-shadow",
+        "w-[172px] rounded-lg border px-3 py-2.5 shadow-lg transition-shadow",
         d.isLead
           ? "border-primary/40 bg-primary/5"
           : "border-white/[0.10] bg-popover hover:border-white/[0.18]",
@@ -69,14 +69,24 @@ function AgentNode({ id, data }: NodeProps) {
         >
           {monogram(d.name)}
         </div>
-        <div className="flex flex-col gap-0.5 pt-0.5 min-w-0">
+        <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
           <div className="flex items-center gap-1.5">
             {d.isLead && <Crown className="size-3 shrink-0 text-primary/80" />}
-            <span className="truncate text-[13px] font-medium text-foreground leading-tight">
+            <span className="truncate text-[12px] font-medium leading-tight text-foreground">
               {d.name}
             </span>
           </div>
-          <span className="truncate text-[11px] text-muted-foreground leading-tight">{d.role}</span>
+          <span
+            className="text-[10px] leading-snug text-muted-foreground"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {d.role}
+          </span>
         </div>
       </div>
 
@@ -143,10 +153,10 @@ export function TeamOrgChart({ members, leadAgentId }: Props) {
     const lead = validMembers.find((m) => m.agentId === leadAgentId);
     const nonLeads = validMembers.filter((m) => m.agentId !== leadAgentId);
 
-    // Node card is 200px wide + 24px gap on each side = 248px per slot.
+    // Node card is fixed 172px wide + 28px gap = 200px per slot.
     // Wrap into rows of max 4 so the chart doesn't stretch infinitely wide.
-    const NODE_W = 200;
-    const COL_GAP = 32;
+    const NODE_W = 172;
+    const COL_GAP = 28;
     const ROW_GAP = 100;
     const COLS = Math.min(nonLeads.length, 4);
     const SLOT_W = NODE_W + COL_GAP;
