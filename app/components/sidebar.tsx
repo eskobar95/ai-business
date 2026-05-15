@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Plus,
   Settings,
   Share2,
@@ -346,6 +347,17 @@ export function AppSidebar({
             icon={FolderKanban}
             collapsed={collapsed}
             isActive={isActive("/dashboard/missions")}
+          />
+          <NavItem
+            href={
+              businessId
+                ? `/dashboard/chats?businessId=${encodeURIComponent(businessId)}`
+                : "/dashboard/chats"
+            }
+            label="Chats"
+            icon={MessageSquare}
+            collapsed={collapsed}
+            isActive={isActive("/dashboard/chats")}
           />
           <NavItem
             href="/dashboard/approvals"

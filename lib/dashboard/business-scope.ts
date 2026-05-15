@@ -92,12 +92,18 @@ export type DashboardScopedPath =
   | "/dashboard/settings"
   | "/dashboard/settings/integrations"
   | "/dashboard/missions"
+  | "/dashboard/chats"
   | "/dashboard/communication";
+
+/** Includes dynamic chat session URLs for redirects that must preserve `sessionId`. */
+export type DashboardBusinessScopePath =
+  | DashboardScopedPath
+  | `/dashboard/chats/${string}`;
 
 /** Ensures `businessId` belongs to the session user; otherwise redirects with first business or onboarding. */
 export async function resolveBusinessIdParam(
   businessIdParam: string | undefined,
-  redirectBasePath: DashboardScopedPath,
+  redirectBasePath: DashboardBusinessScopePath,
 ): Promise<string> {
   const rows = await loadUserBusinesses();
   if (rows.length === 0) {
