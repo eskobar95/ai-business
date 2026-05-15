@@ -109,7 +109,9 @@ export default async function DashboardPage() {
 
   const primaryBusinessId = businessesWithSeed[0]?.id;
 
-  const seedTarget = businessesWithSeed.find((b) => !b.templateSeeded);
+  // Only prompt setup for the primary business — test/secondary workspaces are ignored.
+  const primaryBusiness = businessesWithSeed[0];
+  const seedTarget = primaryBusiness && !primaryBusiness.templateSeeded ? primaryBusiness : null;
   let templatePreview: ReturnType<typeof getTemplatePreview> | null = null;
   let templatePreviewError: string | null = null;
   if (seedTarget) {
