@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { Rocket } from "lucide-react";
 
+import { ConductorNudge } from "@/components/dashboard/conductor-nudge";
 import { MissionCard } from "@/components/missions/mission-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 import { listMissionsOverview } from "@/lib/missions/actions";
 
@@ -32,18 +36,27 @@ export default async function MissionsPage({
 
       <div className="flex-1 overflow-y-auto px-6 py-8">
         {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] py-16 text-center">
-            <p className="text-[14px] font-semibold text-foreground">No missions yet</p>
-            <p className="max-w-md text-[12px] text-muted-foreground/70">
-              Start by creating your first mission. Your Product Owner will turn it into a sprint brief.
-            </p>
-            <Link
-              href={`/dashboard/missions/new?businessId=${encodeURIComponent(businessId)}`}
-              className="mt-2 rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Create first mission
-            </Link>
-          </div>
+          <EmptyState
+            icon={Rocket}
+            title="Ingen missions endnu"
+            description="Start din første mission og lad dit agent-team gå i gang."
+            className="border-white/[0.12] bg-white/[0.02] py-16"
+            action={
+              <div className="flex w-full max-w-md flex-col items-center gap-4">
+                <Button asChild>
+                  <Link
+                    href={`/dashboard/missions/new?businessId=${encodeURIComponent(businessId)}`}
+                  >
+                    Opret første mission
+                  </Link>
+                </Button>
+                <ConductorNudge
+                  businessId={businessId}
+                  label="Hvad er en mission? Spørg Conductor"
+                />
+              </div>
+            }
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => (
