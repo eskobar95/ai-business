@@ -162,6 +162,13 @@
       "when": 1778852165362,
       "tag": "0022_conductor_platform_default",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1778935000000,
+      "tag": "0023_fix_rename_projects_to_missions",
+      "breakpoints": true
     }
   ]
 }
