@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Columns2, GitFork, List, Plus, SquarePen } from "lucide-react";
+import { Columns2, GitFork, List, Plus, SquarePen, X } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { KanbanBoard } from "@/components/ui/kanban-board";
@@ -276,6 +277,8 @@ export function TasksKanbanBoard({
   businessId,
   agents,
   teams,
+  activeTeamName,
+  scopedTeamId,
 }: {
   grouped: Record<TaskStatus, TaskRow[]>;
   agentNames: Record<string, string>;
@@ -283,6 +286,8 @@ export function TasksKanbanBoard({
   businessId: string;
   agents: { id: string; name: string }[];
   teams: { id: string; name: string }[];
+  activeTeamName?: string;
+  scopedTeamId?: string;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"board" | "list">("board");
@@ -327,9 +332,11 @@ export function TasksKanbanBoard({
 
   const openTask = useCallback(
     (taskId: string) => {
-      router.push(`/dashboard/tasks/${taskId}?businessId=${encodeURIComponent(businessId)}`);
+      const qs = new URLSearchParams({ businessId });
+      if (scopedTeamId) qs.set("teamId", scopedTeamId);
+      router.push(`/dashboard/tasks/${taskId}?${qs.toString()}`);
     },
-    [router, businessId],
+    [router, businessId, scopedTeamId],
   );
 
   const handleTaskCreated = useCallback(
@@ -351,8 +358,27 @@ export function TasksKanbanBoard({
     setModalOpen(true);
   }, []);
 
+  const clearTeamFilterHref = `/dashboard/tasks?businessId=${encodeURIComponent(businessId)}`;
+
   return (
     <div>
+      {activeTeamName ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground/75">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-white/[0.03] px-2.5 py-1">
+            <span className="text-foreground/80">Tasks</span>
+            <span className="text-muted-foreground/45">—</span>
+            <span className="font-medium text-foreground/90">{activeTeamName}</span>
+          </span>
+          <Link
+            href={clearTeamFilterHref}
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground/60 transition-colors hover:border-border hover:bg-white/[0.04] hover:text-foreground/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+            aria-label="Clear team filter"
+          >
+            <X className="size-3.5" aria-hidden />
+          </Link>
+        </div>
+      ) : null}
+
       {/* Toolbar row */}
       <div className="mb-4 flex items-center justify-between">
         <button
