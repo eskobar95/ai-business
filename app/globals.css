@@ -960,3 +960,8 @@ span[data-mention]:not([data-mention-type="agent"]) {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin: 1.25em 0;
 }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 0.9; }
+}
