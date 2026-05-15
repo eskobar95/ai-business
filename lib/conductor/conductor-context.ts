@@ -1,5 +1,5 @@
 import { getDb } from "@/db/index";
-import { agents, approvals, businesses, memory, projects } from "@/db/schema";
+import { agents, approvals, businesses, memory, missions } from "@/db/schema";
 import { summarizeArtifactRef } from "@/lib/approvals/artifact-summary";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
@@ -43,10 +43,10 @@ export async function loadConductorOrchestrationSnapshot(
     .orderBy(asc(agents.name));
 
   const missionRows = await db
-    .select({ name: projects.name, status: projects.status })
-    .from(projects)
-    .where(eq(projects.businessId, businessId))
-    .orderBy(desc(projects.updatedAt))
+    .select({ name: missions.name, status: missions.status })
+    .from(missions)
+    .where(eq(missions.businessId, businessId))
+    .orderBy(desc(missions.updatedAt))
     .limit(25);
 
   const pending = await db

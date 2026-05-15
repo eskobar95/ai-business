@@ -50,7 +50,8 @@ jobs:
   playwright:
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # E2E + migrate + build chain can exceed 30m on busy runners; avoid false failures.
+    timeout-minutes: 50
 
     steps:
       - uses: actions/checkout@v4
@@ -73,8 +74,10 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       # Keep CI schema in sync with `db/schema.ts` — E2E hits real Neon; migrations are not implicit.
+      # `run-drizzle-migrate.mjs` uses DATABASE_URL first when CI=true so migrations cannot target a different DB than Next.js (mis-set DATABASE_DIRECT_URL).
       - name: Apply database migrations
         env:
+          CI: true
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
         run: npm run db:migrate

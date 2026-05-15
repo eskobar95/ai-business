@@ -13,11 +13,9 @@ test.describe("smoke", () => {
     expect(status).toBeLessThan(500);
   });
 
-  test("dashboard projects route responds (auth may redirect)", async ({ page }) => {
-    const response = await page.goto("/dashboard/projects");
-    const status = response?.status() ?? 0;
-    expect(status).toBeGreaterThanOrEqual(200);
-    expect(status).toBeLessThan(500);
+  test("legacy /dashboard/projects ends at missions or auth after redirect", async ({ page }) => {
+    await page.goto("/dashboard/projects");
+    expect(page.url()).toMatch(/\/(auth\/sign-in|dashboard\/missions)/);
   });
 
   test("dashboard webhooks route responds (auth may redirect)", async ({ page }) => {

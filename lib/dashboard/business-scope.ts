@@ -91,7 +91,7 @@ export type DashboardScopedPath =
   | "/dashboard/webhooks"
   | "/dashboard/settings"
   | "/dashboard/settings/integrations"
-  | "/dashboard/projects"
+  | "/dashboard/missions"
   | "/dashboard/communication";
 
 /** Ensures `businessId` belongs to the session user; otherwise redirects with first business or onboarding. */

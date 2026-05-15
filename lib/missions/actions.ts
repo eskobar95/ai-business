@@ -3,7 +3,7 @@
 import { count, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
-import { projects, approvals, sprints, tasks } from "@/db/schema";
+import { missions, approvals, sprints, tasks } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 
@@ -12,7 +12,7 @@ async function ensureBusiness(businessId: string): Promise<void> {
   await assertUserBusinessAccess(userId, businessId);
 }
 
-export async function createProject(params: {
+export async function createMission(params: {
   businessId: string;
   name: string;
   prd?: string;
@@ -21,10 +21,10 @@ export async function createProject(params: {
   await ensureBusiness(params.businessId);
   const db = getDb();
   const nm = params.name.trim();
-  if (!nm) throw new Error("Project name is required");
+  if (!nm) throw new Error("Mission name is required");
 
   const [row] = await db
-    .insert(projects)
+    .insert(missions)
     .values({
       businessId: params.businessId,
       name: nm,
@@ -32,13 +32,13 @@ export async function createProject(params: {
       status: params.status ?? "draft",
       updatedAt: new Date(),
     })
-    .returning({ id: projects.id });
-  if (!row) throw new Error("Failed to create project");
+    .returning({ id: missions.id });
+  if (!row) throw new Error("Failed to create mission");
   return row;
 }
 
-export async function updateProject(
-  projectId: string,
+export async function updateMission(
+  missionId: string,
   patch: Partial<{
     name: string;
     prd: string;
@@ -48,64 +48,64 @@ export async function updateProject(
 ): Promise<void> {
   const userId = await requireSessionUserId();
   const db = getDb();
-  const existing = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
+  const existing = await db.query.missions.findFirst({
+    where: eq(missions.id, missionId),
     columns: { businessId: true },
   });
-  if (!existing) throw new Error("Project not found");
+  if (!existing) throw new Error("Mission not found");
   await assertUserBusinessAccess(userId, existing.businessId);
 
-  const payload: Partial<typeof projects.$inferInsert> = { updatedAt: new Date() };
+  const payload: Partial<typeof missions.$inferInsert> = { updatedAt: new Date() };
   if (patch.name !== undefined) {
     const nm = patch.name.trim();
-    if (!nm) throw new Error("Project name is required");
+    if (!nm) throw new Error("Mission name is required");
     payload.name = nm;
   }
   if (patch.prd !== undefined) payload.prd = patch.prd;
   if (patch.status !== undefined) payload.status = patch.status;
   if (patch.notionId !== undefined) payload.notionId = patch.notionId;
 
-  await db.update(projects).set(payload).where(eq(projects.id, projectId));
+  await db.update(missions).set(payload).where(eq(missions.id, missionId));
 }
 
-export async function deleteProject(projectId: string): Promise<void> {
+export async function deleteMission(missionId: string): Promise<void> {
   const userId = await requireSessionUserId();
   const db = getDb();
-  const existing = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
+  const existing = await db.query.missions.findFirst({
+    where: eq(missions.id, missionId),
     columns: { businessId: true },
   });
-  if (!existing) throw new Error("Project not found");
+  if (!existing) throw new Error("Mission not found");
   await assertUserBusinessAccess(userId, existing.businessId);
-  await db.delete(projects).where(eq(projects.id, projectId));
+  await db.delete(missions).where(eq(missions.id, missionId));
 }
 
-export async function listProjectsOverview(businessId: string) {
+export async function listMissionsOverview(businessId: string) {
   await ensureBusiness(businessId);
   const db = getDb();
   const rows = await db
     .select()
-    .from(projects)
-    .where(eq(projects.businessId, businessId))
-    .orderBy(desc(projects.updatedAt));
+    .from(missions)
+    .where(eq(missions.businessId, businessId))
+    .orderBy(desc(missions.updatedAt));
 
   if (rows.length === 0) return rows.map((r) => ({ ...r, sprintCount: 0, taskCount: 0 }));
 
   const ids = rows.map((r) => r.id);
   const sprintRows = await db
-    .select({ projectId: sprints.projectId, n: count() })
+    .select({ missionId: sprints.missionId, n: count() })
     .from(sprints)
-    .where(inArray(sprints.projectId, ids))
-    .groupBy(sprints.projectId);
-  const sprintMap = new Map(sprintRows.map((s) => [s.projectId, Number(s.n)]));
+    .where(inArray(sprints.missionId, ids))
+    .groupBy(sprints.missionId);
+  const sprintMap = new Map(sprintRows.map((s) => [s.missionId, Number(s.n)]));
 
   const taskRows = await db
-    .select({ projectId: tasks.projectId, n: count() })
+    .select({ missionId: tasks.missionId, n: count() })
     .from(tasks)
-    .where(inArray(tasks.projectId, ids))
-    .groupBy(tasks.projectId);
+    .where(inArray(tasks.missionId, ids))
+    .groupBy(tasks.missionId);
   const taskMap = new Map(
-    taskRows.filter((t) => t.projectId != null).map((t) => [t.projectId!, Number(t.n)]),
+    taskRows.filter((t) => t.missionId != null).map((t) => [t.missionId!, Number(t.n)]),
   );
 
   return rows.map((r) => ({
@@ -115,22 +115,29 @@ export async function listProjectsOverview(businessId: string) {
   }));
 }
 
-export async function getProjectBundle(projectId: string) {
+function approvalReferencesMission(ref: Record<string, unknown>, missionId: string): boolean {
+  if (ref?.kind === "mission" && ref?.missionId === missionId) return true;
+  /** Legacy artifact refs from before rename */
+  if (ref?.kind === "project" && ref?.projectId === missionId) return true;
+  return false;
+}
+
+export async function getMissionBundle(missionId: string) {
   const userId = await requireSessionUserId();
   const db = getDb();
-  const proj = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
+  const mission = await db.query.missions.findFirst({
+    where: eq(missions.id, missionId),
     with: {
       sprintsMany: {
         orderBy: (sp, { asc }) => [asc(sp.createdAt)],
       },
     },
   });
-  if (!proj) throw new Error("Project not found");
-  await assertUserBusinessAccess(userId, proj.businessId);
+  if (!mission) throw new Error("Mission not found");
+  await assertUserBusinessAccess(userId, mission.businessId);
 
   const taskRows = await db.query.tasks.findMany({
-    where: eq(tasks.projectId, projectId),
+    where: eq(tasks.missionId, missionId),
     orderBy: (t, { asc }) => [asc(t.createdAt)],
     columns: {
       id: true,
@@ -143,7 +150,7 @@ export async function getProjectBundle(projectId: string) {
   });
 
   const approvalsAll = await db.query.approvals.findMany({
-    where: eq(approvals.businessId, proj.businessId),
+    where: eq(approvals.businessId, mission.businessId),
     orderBy: (a, { desc: d }) => [d(a.createdAt)],
     limit: 120,
     columns: {
@@ -160,8 +167,8 @@ export async function getProjectBundle(projectId: string) {
   });
   const approvalsRows = approvalsAll.filter((a) => {
     const ref = a.artifactRef as Record<string, unknown>;
-    return ref?.kind === "project" && ref?.projectId === projectId;
+    return approvalReferencesMission(ref, missionId);
   });
 
-  return { project: proj, tasks: taskRows, approvals: approvalsRows };
+  return { mission, tasks: taskRows, approvals: approvalsRows };
 }

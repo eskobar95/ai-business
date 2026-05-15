@@ -149,8 +149,8 @@ export function TaskCreateModal({
           gatesLockedAt: null,
           priority: "medium",
           labels: [],
-          project: null,
-          projectId: null,
+          mission: null,
+          missionId: null,
           sprintId: null,
           storyPoints: null,
           blockedReason:

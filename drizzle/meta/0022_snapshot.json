@@ -1,6 +1,6 @@
 {
-  "id": "484e68dc-a1c2-4784-94f6-ea49709b220f",
-  "prevId": "0e37a26d-30d2-4b0f-ab54-9b6a7ca863b1",
+  "id": "e6175a6b-e9bd-48c2-88a3-1ee40397e8a4",
+  "prevId": "484e68dc-a1c2-4784-94f6-ea49709b220f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -727,6 +727,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 3
+        },
+        "is_platform_default": {
+          "name": "is_platform_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -2129,6 +2136,117 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.missions": {
+      "name": "missions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "business_id": {
+          "name": "business_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prd": {
+          "name": "prd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "notion_id": {
+          "name": "notion_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "missions_business_id_idx": {
+          "name": "missions_business_id_idx",
+          "columns": [
+            {
+              "expression": "business_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "missions_status_idx": {
+          "name": "missions_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "missions_business_id_businesses_id_fk": {
+          "name": "missions_business_id_businesses_id_fk",
+          "tableFrom": "missions",
+          "tableTo": "businesses",
+          "columnsFrom": [
+            "business_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.orchestration_events": {
       "name": "orchestration_events",
       "schema": "",
@@ -2697,6 +2815,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "mission_id": {
+          "name": "mission_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -2734,12 +2858,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "mission_id": {
-          "name": "mission_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {
@@ -3145,6 +3263,18 @@
           "notNull": false,
           "default": "'[]'::jsonb"
         },
+        "mission": {
+          "name": "mission",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mission_id": {
+          "name": "mission_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sprint_id": {
           "name": "sprint_id",
           "type": "uuid",
@@ -3219,18 +3349,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "mission_id": {
-          "name": "mission_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mission": {
-          "name": "mission",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -3360,11 +3478,11 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_sprint_id_idx": {
-          "name": "tasks_sprint_id_idx",
+        "tasks_mission_id_idx": {
+          "name": "tasks_mission_id_idx",
           "columns": [
             {
-              "expression": "sprint_id",
+              "expression": "mission_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3375,11 +3493,11 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_mission_id_idx": {
-          "name": "tasks_mission_id_idx",
+        "tasks_sprint_id_idx": {
+          "name": "tasks_sprint_id_idx",
           "columns": [
             {
-              "expression": "mission_id",
+              "expression": "sprint_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3403,6 +3521,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tasks_mission_id_missions_id_fk": {
+          "name": "tasks_mission_id_missions_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "missions",
+          "columnsFrom": [
+            "mission_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "tasks_sprint_id_sprints_id_fk": {
@@ -3501,19 +3632,6 @@
           ],
           "columnsTo": [
             "business_id",
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "tasks_mission_id_missions_id_fk": {
-          "name": "tasks_mission_id_missions_id_fk",
-          "tableFrom": "tasks",
-          "tableTo": "missions",
-          "columnsFrom": [
-            "mission_id"
-          ],
-          "columnsTo": [
             "id"
           ],
           "onDelete": "set null",
@@ -4108,117 +4226,6 @@
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.missions": {
-      "name": "missions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "business_id": {
-          "name": "business_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "prd": {
-          "name": "prd",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'draft'"
-        },
-        "notion_id": {
-          "name": "notion_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "missions_business_id_idx": {
-          "name": "missions_business_id_idx",
-          "columns": [
-            {
-              "expression": "business_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "missions_status_idx": {
-          "name": "missions_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "missions_business_id_businesses_id_fk": {
-          "name": "missions_business_id_businesses_id_fk",
-          "tableFrom": "missions",
-          "tableTo": "businesses",
-          "columnsFrom": [
-            "business_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

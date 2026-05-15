@@ -315,10 +315,14 @@ export async function updateTaskPriority(taskId: string, priority: string): Prom
   await db.update(tasks).set({ priority, updatedAt: new Date() }).where(eq(tasks.id, taskId));
 }
 
-export async function updateTaskProject(taskId: string, project: string | null): Promise<void> {
+export async function updateTaskMission(taskId: string, mission: string | null): Promise<void> {
   await assertTaskInBusinessForUser(taskId);
   const db = getDb();
-  await db.update(tasks).set({ project, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+  const normalizedMission = mission?.trim() || null;
+  await db
+    .update(tasks)
+    .set({ mission: normalizedMission, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
 }
 
 export async function updateTaskAssignee(taskId: string, agentId: string | null): Promise<void> {
@@ -503,13 +507,13 @@ export async function getTaskRelations(
 export async function getRecentTasksForBusiness(
   businessId: string,
   limit = 50,
-): Promise<{ id: string; title: string; status: string; priority: string | null; project: string | null }[]> {
+): Promise<{ id: string; title: string; status: string; priority: string | null; mission: string | null }[]> {
   const userId = await requireSessionUserId();
   await assertUserBusinessAccess(userId, businessId);
   const db = getDb();
   const rows = await db.query.tasks.findMany({
     where: eq(tasks.businessId, businessId),
-    columns: { id: true, title: true, status: true, priority: true, project: true },
+    columns: { id: true, title: true, status: true, priority: true, mission: true },
     orderBy: [desc(tasks.createdAt)],
     limit,
   });

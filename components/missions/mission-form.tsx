@@ -8,14 +8,14 @@ import { toast } from "sonner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { NovelEditor } from "@/components/ui/novel-editor";
 import { PrimaryButton } from "@/components/ui/primary-button";
-import { createProject } from "@/lib/projects/actions";
+import { createMission } from "@/lib/missions/actions";
 
 const STATUS_OPTIONS = [
   { id: "draft", label: "Draft" },
   { id: "active", label: "Active" },
 ];
 
-export function ProjectCreateForm({ businessId }: { businessId: string }) {
+export function MissionCreateForm({ businessId }: { businessId: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [status, setStatus] = useState("draft");
@@ -27,15 +27,15 @@ export function ProjectCreateForm({ businessId }: { businessId: string }) {
   function handleSubmit() {
     start(async () => {
       try {
-        const row = await createProject({
+        const row = await createMission({
           businessId,
           name: name.trim(),
           status: status === "active" ? "active" : "draft",
           prd: prdHtml,
         });
-        toast.success("Project created.");
+        toast.success("Mission created.");
         router.push(
-          `/dashboard/projects/${row.id}?businessId=${encodeURIComponent(businessId)}`,
+          `/dashboard/missions/${row.id}?businessId=${encodeURIComponent(businessId)}`,
         );
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to create");
@@ -46,24 +46,24 @@ export function ProjectCreateForm({ businessId }: { businessId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
       <div>
-        <p className="section-label mb-1">Projects</p>
-        <h1 className="text-xl font-semibold tracking-tight">New project</h1>
+        <p className="section-label mb-1">Missions</p>
+        <h1 className="text-xl font-semibold tracking-tight">New mission</h1>
       </div>
 
       <Link
-        href={`/dashboard/projects?businessId=${encodeURIComponent(businessId)}`}
+        href={`/dashboard/missions?businessId=${encodeURIComponent(businessId)}`}
         className="w-fit cursor-pointer text-[12px] text-muted-foreground transition-colors hover:text-foreground"
       >
-        ← Back to projects
+        ← Back to missions
       </Link>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <label className="section-label" htmlFor="project-name">
+          <label className="section-label" htmlFor="mission-name">
             Name
           </label>
           <input
-            id="project-name"
+            id="mission-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="rounded-md border border-border bg-card px-3 py-2 text-[13px] outline-none ring-ring focus-visible:ring-2"
@@ -71,10 +71,10 @@ export function ProjectCreateForm({ businessId }: { businessId: string }) {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="section-label" htmlFor="project-status">
+          <label className="section-label" htmlFor="mission-status">
             Status
           </label>
-          <CustomSelect id="project-status" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+          <CustomSelect id="mission-status" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
         </div>
       </div>
 
@@ -89,7 +89,7 @@ export function ProjectCreateForm({ businessId }: { businessId: string }) {
 
       <div className="flex justify-end gap-3">
         <PrimaryButton type="button" disabled={!canSubmit} loading={pending} onClick={handleSubmit}>
-          {pending ? "Creating…" : "Create project"}
+          {pending ? "Creating…" : "Create mission"}
         </PrimaryButton>
       </div>
     </div>
