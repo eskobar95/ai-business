@@ -181,7 +181,6 @@ export function ConductorChatWidgetClient({
                     key={message.id}
                     message={message}
                     agentLabel="Conductor"
-                    compact
                     isLastInGroup={i === group.length - 1}
                     onQuestionAnswer={(qid, answer) =>
                       void handleSend(`[answer:${qid}] ${answer}`)

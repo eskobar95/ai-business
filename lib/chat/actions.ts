@@ -96,6 +96,64 @@ export async function listChatSessions(businessId: string) {
   });
 }
 
+/**
+ * Idempotent bootstrap for the Conductor widget.
+ * If `storedSessionId` is provided and belongs to the given agent, it reuses
+ * that session and returns its messages. Otherwise it creates a new session.
+ */
+export async function ensureWidgetChatSession(
+  businessId: string,
+  agentId: string,
+  storedSessionId: string | null,
+): Promise<{
+  sessionId: string;
+  initialMessages: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: Date }>;
+}> {
+  await requireSessionUserId();
+  await ensureBusiness(businessId);
+  const db = getDb();
+
+  if (storedSessionId) {
+    const existing = await db.query.chatSessions.findFirst({
+      where: and(
+        eq(chatSessions.id, storedSessionId),
+        eq(chatSessions.businessId, businessId),
+        eq(chatSessions.agentId, agentId),
+      ),
+      with: {
+        messages: { orderBy: [desc(chatMessages.createdAt)], limit: 50 },
+      },
+    });
+
+    if (existing) {
+      return {
+        sessionId: existing.id,
+        initialMessages: existing.messages.reverse().map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt,
+        })),
+      };
+    }
+  }
+
+  const agent = await db.query.agents.findFirst({
+    where: and(eq(agents.id, agentId), eq(agents.businessId, businessId)),
+    columns: { name: true },
+  });
+  if (!agent) throw new Error("Agent not found");
+
+  const [row] = await db
+    .insert(chatSessions)
+    .values({ businessId, agentId, title: `Chat with ${agent.name}` })
+    .returning({ id: chatSessions.id });
+
+  if (!row) throw new Error("Failed to create chat session");
+
+  return { sessionId: row.id, initialMessages: [] };
+}
+
 /** Get a single session with its messages. */
 export async function getChatSession(sessionId: string) {
   await requireSessionUserId();
