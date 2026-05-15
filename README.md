@@ -1,12 +1,13 @@
-# AI Business
+# AI Business Platform
 
-Agentic development setup using **APM** (Agentic Project Management) with **Cursor** sub-agents and hooks.
+Orchestration cockpit for AI-driven businesses and teams. Humans curate and approve; Cursor CLI runs agents locally. Built as a Next.js application with a complete V1.0 feature set covering mission management, sprint planning, PO briefing, EM task decomposition, and human approval gates.
+
+**Platform V1.0 is complete.** See [`docs/platform-v1-completion-report.md`](docs/platform-v1-completion-report.md) for the full feature summary.
 
 ## Prerequisites
 
 - Node.js 18+
-- Cursor
-- `agentic-pm` CLI (global): `npm install -g agentic-pm`
+- Cursor (agent execution via Cursor CLI)
 
 ## App stack (Next.js + Drizzle + Neon)
 
@@ -72,41 +73,32 @@ Use a dedicated Neon branch or disposable credentials for CI; never reuse produc
 
 Ensure the database pointed at by `DATABASE_URL` has migrations applied (`npm run db:migrate` against that branch) before expecting Grill-Me E2E to pass.
 
-Initial schema: `[db/schema.ts](db/schema.ts)` includes a starter `**businesses`** table; SQL is under `[drizzle/](drizzle/)`.
+Schema: `[db/schema.ts](db/schema.ts)` — 25+ tables. Migrations under `[drizzle/](drizzle/)`. See [`db/README.md`](db/README.md) for table overview.
 
-## One-time: APM init (already done in this repo)
+## Platform features (V1.0)
 
-```bash
-apm init -a cursor
-```
+| Area | What it does |
+|------|-------------|
+| **Grill-Me onboarding** | Structured interview captures business soul → stored in `memory` table |
+| **Conductor agent** | Platform-default agent seeded on business creation; guides owner from template to active agents |
+| **Mission wizard** | 4-step guided flow: type → goal → validation contract → review |
+| **Sprint UI** | Sprint list + inline create form on mission detail page |
+| **PO Briefing** | `runProductOwnerBriefing` → simulated sprint brief + pending approval (single transaction) |
+| **Team task-views** | Sidebar Issues links scoped to `?teamId=` — kanban per team |
+| **EM Decomposition** | `runEngineeringManagerDecomposition` → 5 backlog tasks + sprint activated (single transaction) |
+| **Empty states** | `ConductorNudge` component on all empty dashboard/mission/task pages |
+| **GitHub integration** | App OAuth + multi-repo selection stored in normalized child table |
+| **Human approvals** | Approve/reject gate between PO brief and EM task creation |
 
-## Planner session (once per major planning cycle)
+## Agent dispatch workflow
 
-See [docs/APM-PLANNER-KICKOFF.md](docs/APM-PLANNER-KICKOFF.md). Product context for the Planner: [docs/ai-business-platform-spec.md](docs/ai-business-platform-spec.md).
+Tasks are dispatched via Cursor's **Task** tool with `subagent_type: generalPurpose`. Each subagent:
+1. Works in an isolated git worktree under `.worktrees/<id>/`
+2. Implements the feature on its own branch
+3. Pushes and opens a PR
+4. The parent agent merges after CI + CodeRabbit review
 
-## Ongoing: Manager chat
-
-In your **main** Agent chat:
-
-```text
-/apm-2-initiate-manager
-```
-
-Workers are spawned via the **Task** tool per `.cursor/rules/apm-worker-subagents.mdc` and [AGENTS.md](AGENTS.md).
-
-## Hooks
-
-[.cursor/hooks.json](.cursor/hooks.json) defines a `subagentStop` prompt hook so the Manager receives a follow-up after each Worker finishes (report delivery and next dispatch).
-
-Reload hooks: save `hooks.json` or restart Cursor. Use **Hooks** in settings / output channel if debugging.
-
-## Verify setup
-
-1. `apm status` shows Cursor assistant installed.
-2. `.cursor/commands/` contains `apm-1` … `apm-9` commands.
-3. `.cursor/hooks.json` exists and validates as JSON.
-4. `.cursor/rules/apm-worker-subagents.mdc` exists with `alwaysApply: true`.
-5. After running the Planner, `.apm/bus/<worker-id>/` directories exist for each Worker in the Plan.
+See [`AGENTS.md`](AGENTS.md) for full dispatch rules.
 
 ## Agent skills (project)
 

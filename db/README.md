@@ -38,8 +38,12 @@ Schema is defined in Drizzle (`schema.ts`). Migrations live under `drizzle/` and
 | `agent_mcp_access` | Junction: which agents may use which credential. |
 | `tasks` | Business-scoped tasks; status enum; optional team/agent/parent/approval links. |
 | `task_logs` | Markdown activity per task (`author_type` agent/human). |
+| `missions` | Bounded deliverables (formerly `projects`); `validation_contract` + `project_type` added in `0024`. |
+| `sprints` | Sprint iterations within a mission; `goal` stores PO markdown brief; status: `planning` → `active` → `completed`. |
+| `github_installations` | GitHub App installation per business; encrypted access token. |
+| `github_installation_selected_repos` | Normalized child table: explicit repo selection per installation (null = all repos). |
 | `orchestration_events` | Orchestration payloads and correlation fields. |
 | `webhook_deliveries` | Delivery audit with idempotency key and attempts. |
-| `approvals` | Human approval gate with `artifact_ref` JSON and status enum. |
+| `approvals` | Human approval gate with `artifact_ref` JSON and status enum. PO brief approvals include `{ kind, missionId, sprintId, artifactType: "po_sprint_brief" }` in `artifact_ref`. |
 
 Relations for relational queries are exported next to each table in `schema.ts`.
