@@ -16,11 +16,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   let sidebarTeams: { id: string; name: string }[] = [];
   let primaryBusinessId: string | null = null;
+  let primaryBusinessName: string | null = null;
+  let allBusinesses: { id: string; name: string }[] = [];
 
   if (typeof uid === "string") {
     try {
       const businesses = await loadUserBusinesses();
+      allBusinesses = businesses.map((b) => ({ id: b.id, name: b.name }));
       primaryBusinessId = businesses[0]?.id ?? null;
+      primaryBusinessName = businesses[0]?.name ?? null;
       if (primaryBusinessId) {
         const teams = await listTeamsByBusiness(primaryBusinessId);
         sidebarTeams = teams.map((t) => ({ id: t.id, name: t.name }));
@@ -37,6 +41,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         userEmail={userEmail}
         teams={sidebarTeams}
         businessId={primaryBusinessId}
+        businessName={primaryBusinessName}
+        allBusinesses={allBusinesses}
       />
       {/* Only this area scrolls — sidebar stays locked */}
       <main className="min-w-0 flex-1 overflow-y-auto pt-12 lg:pt-0">

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Bot,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -102,11 +103,15 @@ export function AppSidebar({
   userEmail,
   teams = [],
   businessId = null,
+  businessName = null,
+  allBusinesses = [],
 }: {
   pendingApprovalsCount?: number;
   userEmail?: string | null;
   teams?: { id: string; name: string }[];
   businessId?: string | null;
+  businessName?: string | null;
+  allBusinesses?: { id: string; name: string }[];
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -183,13 +188,16 @@ export function AppSidebar({
             aria-expanded={workspaceOpen}
             aria-haspopup="true"
           >
+            {/* Business avatar — initials from name, fallback "AI" */}
             <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-white/[0.12] text-[9px] font-bold tracking-wider text-foreground/70">
-              AI
+              {businessName
+                ? businessName.slice(0, 2).toUpperCase()
+                : "AI"}
             </span>
             {!collapsed && (
               <>
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.01em] text-foreground/90">
-                  Workspace
+                  {businessName ?? "Workspace"}
                 </span>
                 <ChevronsUpDown className="size-3 shrink-0 text-muted-foreground" />
               </>
@@ -206,6 +214,31 @@ export function AppSidebar({
                   </p>
                 </div>
               )}
+
+              {/* Switch workspace — list of all businesses */}
+              {allBusinesses.length > 1 && (
+                <>
+                  <p className="section-label px-2 pb-1 pt-1.5">Switch workspace</p>
+                  {allBusinesses.map((b) => (
+                    <Link
+                      key={b.id}
+                      href={`/dashboard?businessId=${encodeURIComponent(b.id)}`}
+                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
+                      onClick={() => setWorkspaceOpen(false)}
+                    >
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-white/[0.10] text-[8px] font-bold text-foreground/60">
+                        {b.name.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="flex-1 truncate">{b.name}</span>
+                      {b.id === businessId && (
+                        <Check className="size-3 shrink-0 text-primary" />
+                      )}
+                    </Link>
+                  ))}
+                  <div className="my-1 border-t border-white/[0.06]" />
+                </>
+              )}
+
               <Link
                 href="/dashboard/onboarding"
                 className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-foreground/80 transition-colors hover:bg-white/[0.05]"
