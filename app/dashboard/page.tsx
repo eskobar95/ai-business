@@ -5,15 +5,19 @@ import {
   Bot,
   CheckCircle2,
   PlayCircle,
+  Rocket,
   ShieldAlert,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
 import { PendingApprovalsQueueClient } from "@/components/dashboard/pending-approvals-queue-client";
+import { ConductorNudge } from "@/components/dashboard/conductor-nudge";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { auth } from "@/lib/auth/server";
 import { loadUserBusinessesWithSeedStatusForUser } from "@/lib/dashboard/business-scope";
 import {
+  countMissionsAcrossUserBusinesses,
   getDashboardActivityFeed,
   getDashboardSummaryStats,
   listPendingApprovalsPreviewForUser,
@@ -95,12 +99,15 @@ export default async function DashboardPage() {
   const userId = session?.user?.id;
   if (!userId || typeof userId !== "string") redirect("/auth/sign-in");
 
-  const [stats, activity, pendingPreview, businessesWithSeed] = await Promise.all([
+  const [stats, activity, pendingPreview, businessesWithSeed, missionCount] = await Promise.all([
     getDashboardSummaryStats(userId),
     getDashboardActivityFeed(userId, 20),
     listPendingApprovalsPreviewForUser(userId, 5),
     loadUserBusinessesWithSeedStatusForUser(userId),
+    countMissionsAcrossUserBusinesses(userId),
   ]);
+
+  const primaryBusinessId = businessesWithSeed[0]?.id;
 
   const seedTarget = businessesWithSeed.find((b) => !b.templateSeeded);
   let templatePreview: ReturnType<typeof getTemplatePreview> | null = null;
@@ -126,6 +133,33 @@ export default async function DashboardPage() {
             previewError={templatePreviewError}
           />
         )}
+
+        {missionCount === 0 && primaryBusinessId ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-6 py-14 text-center">
+            <span className="flex size-14 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
+              <Rocket className="size-7" aria-hidden />
+            </span>
+            <div className="space-y-1.5">
+              <p className="text-[15px] font-semibold text-foreground">
+                Dit agent-team er klar. Start din første mission.
+              </p>
+              <p className="max-w-md text-[12px] text-muted-foreground/80">
+                Missions binder dit mål til sprint-planlægning og eksekvering i agent-rosteret.
+              </p>
+            </div>
+            <Button asChild className="mt-1">
+              <Link
+                href={`/dashboard/missions/new?businessId=${encodeURIComponent(primaryBusinessId)}`}
+              >
+                Opret første mission →
+              </Link>
+            </Button>
+            <ConductorNudge
+              businessId={primaryBusinessId}
+              label="Usikker på hvad du skal gøre? Spørg Conductor"
+            />
+          </div>
+        ) : null}
         {/* Stat row — Supabase style with section label above */}
         <div>
           <p className="section-label mb-3">Overview</p>
