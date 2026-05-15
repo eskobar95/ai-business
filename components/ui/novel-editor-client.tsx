@@ -20,6 +20,7 @@ export function NovelEditorClient({
   const [codeView, setCodeView] = useState(false);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: "Write something…" }),
