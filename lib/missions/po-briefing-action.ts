@@ -4,8 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/db/index";
-import { businesses, memory, missions, sprints } from "@/db/schema";
-import { createApproval } from "@/lib/approvals/actions";
+import { approvals, businesses, memory, missions, sprints } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
 
@@ -111,17 +110,6 @@ export async function runProductOwnerBriefing(
       return { success: false, error: "Mission not found" };
     }
 
-    const existingSprint = await db.query.sprints.findFirst({
-      where: eq(sprints.missionId, missionId),
-      columns: { id: true },
-    });
-    if (existingSprint) {
-      return {
-        success: false,
-        error: "Mission already has a sprint brief",
-      };
-    }
-
     const businessRow = await db.query.businesses.findFirst({
       where: eq(businesses.id, businessId),
       columns: { name: true },
@@ -170,41 +158,55 @@ Svar i markdown.
       soulMarkdown,
     }).concat("\n\n", `_MVP-note: Prepared PO prompt (${poPrompt.length} characters). Replace with agent output later._`);
 
-    const [sprintRow] = await db
-      .insert(sprints)
-      .values({
-        missionId,
-        name: "Sprint 1",
-        goal: poOutputMarkdown,
-        status: "planning",
-      })
-      .returning({ id: sprints.id });
+    // Wrap existence check + sprint insert + approval insert in a single transaction
+    // to prevent TOCTOU races (two concurrent calls both passing the check) and
+    // partial failures (orphan sprint with no approval artifact).
+    const { sprintId, approvalId } = await db.transaction(async (tx) => {
+      const existingSprint = await tx.query.sprints.findFirst({
+        where: eq(sprints.missionId, missionId),
+        columns: { id: true },
+      });
+      if (existingSprint) {
+        throw new Error("Mission already has a sprint brief");
+      }
 
-    if (!sprintRow?.id) {
-      return { success: false, error: "Failed to create sprint" };
-    }
+      const [sprintRow] = await tx
+        .insert(sprints)
+        .values({
+          missionId,
+          name: "Sprint 1",
+          goal: poOutputMarkdown,
+          status: "planning",
+        })
+        .returning({ id: sprints.id });
 
-    const approvalTitle = `PO Sprint Brief — ${mission.name}`;
-    const approval = await createApproval({
-      businessId,
-      agentId: null,
-      artifactRef: {
-        kind: "mission",
-        missionId,
-        sprintId: sprintRow.id,
-        title: approvalTitle,
-        artifactType: "po_sprint_brief",
-      },
+      if (!sprintRow?.id) throw new Error("Failed to create sprint");
+
+      const approvalTitle = `PO Sprint Brief — ${mission.name}`;
+      const [approvalRow] = await tx
+        .insert(approvals)
+        .values({
+          businessId,
+          agentId: null,
+          artifactRef: {
+            kind: "mission",
+            missionId,
+            sprintId: sprintRow.id,
+            title: approvalTitle,
+            artifactType: "po_sprint_brief",
+          },
+        })
+        .returning({ id: approvals.id });
+
+      if (!approvalRow?.id) throw new Error("Failed to create approval");
+
+      return { sprintId: sprintRow.id, approvalId: approvalRow.id };
     });
 
     revalidatePath("/dashboard/approvals");
     revalidatePath(`/dashboard/missions/${missionId}`);
 
-    return {
-      success: true,
-      sprintId: sprintRow.id,
-      approvalId: approval.id,
-    };
+    return { success: true, sprintId, approvalId };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to run PO briefing";
     return { success: false, error: message };
