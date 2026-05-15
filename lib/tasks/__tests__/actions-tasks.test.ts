@@ -24,7 +24,7 @@ vi.mock("@/lib/grill-me/access", () => ({
 }));
 
 vi.mock("@/lib/agents/actions", () => ({
-  assertUserOwnsAgent: vi.fn(async () => ({ userId: "user-1", businessId: "b1" })),
+  assertUserOwnsAgent: vi.fn(async () => ({ userId: "user-1", businessId: "b1", isPlatformDefault: false })),
 }));
 
 vi.mock("@/db/index", () => ({

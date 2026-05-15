@@ -12,7 +12,7 @@ import type { agents } from "@/db/schema";
 
 import { MarkdownEditorField } from "./markdown-editor-field";
 
-type Peer = Pick<typeof agents.$inferSelect, "id" | "name">;
+type Peer = Pick<typeof agents.$inferSelect, "id" | "name" | "isPlatformDefault">;
 
 type Props =
   | {
@@ -56,8 +56,8 @@ export function AgentForm(props: Props) {
 
   const peers =
     props.mode === "edit"
-      ? props.peerAgents.filter((p) => p.id !== props.agent.id)
-      : props.peerAgents;
+      ? props.peerAgents.filter((p) => p.id !== props.agent.id && !p.isPlatformDefault)
+      : props.peerAgents.filter((p) => !p.isPlatformDefault);
 
   function submit() {
     setError(null);
@@ -175,7 +175,7 @@ export function AgentForm(props: Props) {
         <Button type="button" data-testid="agent-save" disabled={pending} onClick={submit}>
           {props.mode === "create" ? "Create agent" : "Save changes"}
         </Button>
-        {props.mode === "edit" ? (
+        {props.mode === "edit" && !props.agent.isPlatformDefault ? (
           <Button
             type="button"
             variant="destructive"

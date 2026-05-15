@@ -1,14 +1,7 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { getDb } from "@/db/index";
 import { agentDocuments, agents } from "@/db/schema";
+import { CONDUCTOR_INSTRUCTION_TEMPLATE } from "@/lib/conductor/conductor-instruction-template";
 import { and, eq } from "drizzle-orm";
-
-function loadInstructionTemplate(): string {
-  const path = join(process.cwd(), "lib/conductor/conductor-instructions.md");
-  return readFileSync(path, "utf8");
-}
 
 /**
  * Ensures each business has a Conductor roster entry (`slug=conductor`) with default documents.
@@ -16,7 +9,7 @@ function loadInstructionTemplate(): string {
  */
 export async function seedConductorAgent(businessId: string): Promise<void> {
   const db = getDb();
-  const template = loadInstructionTemplate().trim();
+  const template = CONDUCTOR_INSTRUCTION_TEMPLATE.trim();
 
   const inserted = await db
     .insert(agents)

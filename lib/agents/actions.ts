@@ -50,16 +50,21 @@ async function ensureBusinessMembership(businessId: string): Promise<void> {
 export async function assertUserOwnsAgent(agentId: string): Promise<{
   userId: string;
   businessId: string;
+  isPlatformDefault: boolean;
 }> {
   const db = getDb();
   const userId = await requireSessionUserId();
   const agent = await db.query.agents.findFirst({
     where: eq(agents.id, agentId),
-    columns: { businessId: true },
+    columns: { businessId: true, isPlatformDefault: true },
   });
   if (!agent) throw new Error("Forbidden");
   await assertUserBusinessAccess(userId, agent.businessId);
-  return { userId, businessId: agent.businessId };
+  return {
+    userId,
+    businessId: agent.businessId,
+    isPlatformDefault: agent.isPlatformDefault ?? false,
+  };
 }
 
 export async function createAgent(params: {
@@ -270,16 +275,12 @@ export async function updateAgentAvatar(
 }
 
 export async function deleteAgent(agentId: string): Promise<void> {
-  await assertUserOwnsAgent(agentId);
-  const db = getDb();
-
-  const platformRow = await db.query.agents.findFirst({
-    where: eq(agents.id, agentId),
-    columns: { isPlatformDefault: true },
-  });
-  if (platformRow?.isPlatformDefault) {
+  const { isPlatformDefault } = await assertUserOwnsAgent(agentId);
+  if (isPlatformDefault) {
     throw new Error("This platform agent cannot be deleted.");
   }
+
+  const db = getDb();
 
   const blockingTeam = await db.query.teams.findFirst({
     where: eq(teams.leadAgentId, agentId),
