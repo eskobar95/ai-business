@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
 import { missions, sprints } from "@/db/schema";
@@ -81,19 +81,23 @@ export async function deleteSprint(sprintId: string): Promise<void> {
   await db.delete(sprints).where(eq(sprints.id, sprintId));
 }
 
-/** Sets one sprint `active`; other sprints on the mission become `planning` (unless `completed`). */
+/**
+ * Sets one sprint `active`; other sprints on the mission become `planning` (unless `completed`).
+ * Uses a single SQL statement so both updates are atomic on Neon HTTP (no `db.transaction()`).
+ */
 export async function activateSprint(sprintId: string): Promise<void> {
   const missionId = await assertSprintAccess(sprintId);
   const db = getDb();
-  await db
-    .update(sprints)
-    .set({ status: "planning" })
-    .where(
-      and(
-        eq(sprints.missionId, missionId),
-        ne(sprints.id, sprintId),
-        ne(sprints.status, "completed"),
-      ),
-    );
-  await db.update(sprints).set({ status: "active" }).where(eq(sprints.id, sprintId));
+  await db.execute(sql`
+    WITH _ AS (
+      UPDATE sprints
+      SET status = 'planning'
+      WHERE mission_id = ${missionId}
+        AND id != ${sprintId}
+        AND status != 'completed'
+    )
+    UPDATE sprints
+    SET status = 'active'
+    WHERE id = ${sprintId}
+  `);
 }

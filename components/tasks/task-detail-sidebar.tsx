@@ -308,10 +308,11 @@ function MissionField({
 
   function save() {
     const trimmed = value.trim();
-    setEditing(false);
     startTransition(async () => {
       try {
         await updateTaskMission(taskId, trimmed || null);
+        setValue(trimmed || "");
+        setEditing(false);
       } catch {
         toast.error("Failed to update mission");
         setValue(initialMission ?? "");

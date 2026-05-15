@@ -318,7 +318,11 @@ export async function updateTaskPriority(taskId: string, priority: string): Prom
 export async function updateTaskMission(taskId: string, mission: string | null): Promise<void> {
   await assertTaskInBusinessForUser(taskId);
   const db = getDb();
-  await db.update(tasks).set({ mission, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+  const normalizedMission = mission?.trim() || null;
+  await db
+    .update(tasks)
+    .set({ mission: normalizedMission, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
 }
 
 export async function updateTaskAssignee(taskId: string, agentId: string | null): Promise<void> {
