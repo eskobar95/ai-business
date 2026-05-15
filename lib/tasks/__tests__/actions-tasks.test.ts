@@ -12,6 +12,9 @@ const mockDb = vi.hoisted(() => ({
     approvals: {
       findFirst: vi.fn(),
     },
+    teams: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -142,6 +145,31 @@ describe("tasks actions (mocked db)", () => {
     expect(tree[0]?.id).toBe("p");
     expect(tree[0]?.children).toHaveLength(1);
     expect(tree[0]?.children[0]?.id).toBe("c");
+  });
+
+  it("getTasksByBusiness filters by teamId when provided", async () => {
+    mockDb.query.teams.findFirst.mockResolvedValue({ id: "team-1" });
+
+    const row = {
+      id: "t1",
+      businessId: "b1",
+      title: "Scoped",
+      description: "",
+      status: "backlog" as const,
+      teamId: "team-1",
+      agentId: null,
+      parentTaskId: null,
+      blockedReason: null,
+      approvalId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDb.query.tasks.findMany.mockResolvedValue([row]);
+
+    const tree = await getTasksByBusiness("b1", "team-1");
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.id).toBe("t1");
+    expect(mockDb.query.tasks.findMany).toHaveBeenCalled();
   });
 
   it("getTasksByAgent returns tasks for agent", async () => {
