@@ -400,7 +400,7 @@ export function AgentSettingsForm({
             options={[
               { id: "", label: "— None —" },
               ...peers
-                .filter((p) => p.id !== agent.id && !p.isPlatformDefault)
+                .filter((p) => !p.isPlatformDefault)
                 .map((p) => ({ id: p.id, label: p.name })),
             ]}
           />

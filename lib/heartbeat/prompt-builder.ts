@@ -129,28 +129,21 @@ async function loadHeartbeatPromptContext(agentId: string): Promise<HeartbeatPro
 
   const platformDefault = agentRow.isPlatformDefault === true;
 
-  const pendingApprovals = platformDefault
-    ? await db
-        .select({
-          id: approvals.id,
-          artifactRef: approvals.artifactRef,
-          comment: approvals.comment,
-        })
-        .from(approvals)
-        .where(
-          and(
-            eq(approvals.businessId, agentRow.businessId),
-            eq(approvals.approvalStatus, "pending"),
-          ),
-        )
-    : await db
-        .select({
-          id: approvals.id,
-          artifactRef: approvals.artifactRef,
-          comment: approvals.comment,
-        })
-        .from(approvals)
-        .where(and(eq(approvals.agentId, agentId), eq(approvals.approvalStatus, "pending")));
+  const pendingApprovals = await db
+    .select({
+      id: approvals.id,
+      artifactRef: approvals.artifactRef,
+      comment: approvals.comment,
+    })
+    .from(approvals)
+    .where(
+      and(
+        platformDefault
+          ? eq(approvals.businessId, agentRow.businessId)
+          : eq(approvals.agentId, agentId),
+        eq(approvals.approvalStatus, "pending"),
+      ),
+    );
 
   return {
     soul,
