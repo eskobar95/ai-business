@@ -10,6 +10,7 @@ const chatMocks = vi.hoisted(() => {
   const updateFn = vi.fn(() => ({ set: updateSet }));
 
   const findFirstAgent = vi.fn(async (): Promise<{ name: string } | undefined> => ({ name: "Ada" }));
+  const findFirstSession = vi.fn(async (): Promise<{ businessId: string } | undefined> => ({ businessId: "biz-1" }));
   const findManySessions = vi.fn(async () => [] as unknown[]);
 
   return {
@@ -20,6 +21,7 @@ const chatMocks = vi.hoisted(() => {
     updateSet,
     updateFn,
     findFirstAgent,
+    findFirstSession,
     findManySessions,
   };
 });
@@ -39,6 +41,7 @@ vi.mock("@/db/index", () => ({
         findFirst: chatMocks.findFirstAgent,
       },
       chatSessions: {
+        findFirst: chatMocks.findFirstSession,
         findMany: chatMocks.findManySessions,
       },
     },
@@ -56,10 +59,12 @@ describe("chat actions", () => {
     chatMocks.updateSet.mockClear();
     chatMocks.updateFn.mockClear();
     chatMocks.findFirstAgent.mockReset();
+    chatMocks.findFirstSession.mockReset();
     chatMocks.findManySessions.mockReset();
 
     chatMocks.insertReturning.mockResolvedValue([{ id: "new-session-id" }]);
     chatMocks.findFirstAgent.mockResolvedValue({ name: "Ada" });
+    chatMocks.findFirstSession.mockResolvedValue({ businessId: "biz-1" });
     chatMocks.findManySessions.mockResolvedValue([
       {
         id: "s1",
