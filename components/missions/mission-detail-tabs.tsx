@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -37,11 +38,13 @@ export function MissionDetailTabs({
   mission,
   tasks,
   approvalsRows,
+  sprintSlot,
 }: {
   businessId: string;
   mission: MissionRow & { sprintsMany: SprintRow[] };
   tasks: TaskBrief[];
   approvalsRows: ApprovalBrief[];
+  sprintSlot?: ReactNode;
 }) {
   const router = useRouter();
   const [prd, setPrd] = useState(mission.prd);
@@ -134,17 +137,21 @@ export function MissionDetailTabs({
         </TabsContent>
 
         <TabsContent value="sprints" className="mt-6 flex flex-col gap-6">
-          <SprintFormInline missionId={mission.id} onDone={refresh} />
-          <div className="grid gap-4 lg:grid-cols-2">
-            {mission.sprintsMany.map((sp) => (
-              <SprintCard
-                key={sp.id}
-                row={sp}
-                taskCount={taskCountBySprint.get(sp.id) ?? 0}
-                onRefresh={refresh}
-              />
-            ))}
-          </div>
+          {sprintSlot ?? (
+            <>
+              <SprintFormInline missionId={mission.id} onDone={refresh} />
+              <div className="grid gap-4 lg:grid-cols-2">
+                {mission.sprintsMany.map((sp) => (
+                  <SprintCard
+                    key={sp.id}
+                    row={sp}
+                    taskCount={taskCountBySprint.get(sp.id) ?? 0}
+                    onRefresh={refresh}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6 flex flex-col gap-6">

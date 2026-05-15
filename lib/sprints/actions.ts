@@ -33,21 +33,48 @@ async function assertSprintAccess(sprintId: string): Promise<string> {
   return sp.missionId;
 }
 
-export async function createSprint(missionId: string, data: { name: string; goal?: string }) {
+export async function createSprint(
+  missionId: string,
+  data: { name: string; goal?: string; startDate?: string; endDate?: string },
+): Promise<{ success: true; id: string } | { success: false; error: string }> {
+  try {
+    await assertMissionAccessForSprint(missionId);
+    const nm = data.name.trim();
+    if (!nm) return { success: false, error: "Sprint name is required" };
+    const db = getDb();
+    const [row] = await db
+      .insert(sprints)
+      .values({
+        missionId,
+        name: nm,
+        goal: data.goal?.trim() || null,
+        startDate: data.startDate ?? null,
+        endDate: data.endDate ?? null,
+      })
+      .returning({ id: sprints.id });
+    if (!row) return { success: false, error: "Failed to create sprint" };
+    return { success: true, id: row.id };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to create sprint" };
+  }
+}
+
+export async function listSprintsByMission(missionId: string): Promise<(typeof sprints.$inferSelect)[]> {
   await assertMissionAccessForSprint(missionId);
-  const nm = data.name.trim();
-  if (!nm) throw new Error("Sprint name is required");
   const db = getDb();
-  const [row] = await db
-    .insert(sprints)
-    .values({
-      missionId,
-      name: nm,
-      goal: data.goal?.trim() || null,
-    })
-    .returning({ id: sprints.id });
-  if (!row) throw new Error("Failed to create sprint");
-  return row;
+  return db.query.sprints.findMany({
+    where: eq(sprints.missionId, missionId),
+    orderBy: (sp, { asc }) => [asc(sp.createdAt)],
+  });
+}
+
+export async function updateSprintStatus(
+  sprintId: string,
+  status: "planning" | "active" | "completed",
+): Promise<void> {
+  await assertSprintAccess(sprintId);
+  const db = getDb();
+  await db.update(sprints).set({ status }).where(eq(sprints.id, sprintId));
 }
 
 export async function updateSprint(
