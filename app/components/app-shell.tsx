@@ -1,4 +1,6 @@
+import { ConductorChatWidget } from "@/components/dashboard/conductor-chat-widget";
 import { auth } from "@/lib/auth/server";
+
 import { countPendingApprovalsForUser } from "@/lib/approvals/queries";
 import { loadUserBusinesses } from "@/lib/dashboard/business-scope";
 import { listTeamsByBusiness } from "@/lib/teams/actions";
@@ -48,6 +50,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <main className="min-w-0 flex-1 overflow-y-auto pt-12 lg:pt-0">
         {children}
       </main>
+      {typeof primaryBusinessId === "string" && primaryBusinessId ? (
+        <ConductorChatWidget businessId={primaryBusinessId} />
+      ) : null}
     </div>
   );
 }
