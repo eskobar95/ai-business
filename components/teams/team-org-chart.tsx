@@ -143,8 +143,16 @@ export function TeamOrgChart({ members, leadAgentId }: Props) {
     const lead = validMembers.find((m) => m.agentId === leadAgentId);
     const nonLeads = validMembers.filter((m) => m.agentId !== leadAgentId);
 
-    const totalWidth = Math.max(nonLeads.length * 220, 220);
-    const startX = (totalWidth - 180) / 2;
+    // Node card is 200px wide + 24px gap on each side = 248px per slot.
+    // Wrap into rows of max 4 so the chart doesn't stretch infinitely wide.
+    const NODE_W = 200;
+    const COL_GAP = 32;
+    const ROW_GAP = 100;
+    const COLS = Math.min(nonLeads.length, 4);
+    const SLOT_W = NODE_W + COL_GAP;
+
+    const totalChildWidth = COLS * SLOT_W - COL_GAP;
+    const leadX = Math.max(0, (totalChildWidth - NODE_W) / 2);
 
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -153,27 +161,22 @@ export function TeamOrgChart({ members, leadAgentId }: Props) {
       nodes.push({
         id: lead.agentId,
         type: "agentNode",
-        position: { x: startX, y: 40 },
-        data: {
-          name: lead.agent.name,
-          role: lead.agent.role,
-          isLead: true,
-        },
+        position: { x: leadX, y: 0 },
+        data: { name: lead.agent.name, role: lead.agent.role, isLead: true },
       });
     }
 
     nonLeads.forEach((m, i) => {
       if (!m.agent) return;
-      const x = i * 220;
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const x = col * SLOT_W;
+      const y = 160 + row * (80 + ROW_GAP);
       nodes.push({
         id: m.agentId,
         type: "agentNode",
-        position: { x, y: 240 },
-        data: {
-          name: m.agent.name,
-          role: m.agent.role,
-          isLead: false,
-        },
+        position: { x, y },
+        data: { name: m.agent.name, role: m.agent.role, isLead: false },
       });
 
       if (lead) {
@@ -181,10 +184,8 @@ export function TeamOrgChart({ members, leadAgentId }: Props) {
           id: `${lead.agentId}->${m.agentId}`,
           source: lead.agentId,
           target: m.agentId,
-          style: {
-            stroke: "rgba(255,255,255,0.15)",
-            strokeWidth: 1.5,
-          },
+          type: "smoothstep",
+          style: { stroke: "rgba(255,255,255,0.12)", strokeWidth: 1.5 },
           animated: false,
         });
       }
@@ -236,7 +237,7 @@ export function TeamOrgChart({ members, leadAgentId }: Props) {
         nodeTypes={nodeTypes}
         style={rfStyle}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.25, minZoom: 0.4, maxZoom: 1 }}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
