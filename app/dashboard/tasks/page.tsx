@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ClipboardList } from "lucide-react";
 
 import { PageHeader } from "@/components/ui/page-header";
 import { TasksKanbanBoard } from "@/components/tasks/tasks-kanban-board";
 import { Button } from "@/components/ui/button";
+import { ConductorNudge } from "@/components/dashboard/conductor-nudge";
 import { loadUserBusinesses, resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 import { getAgentsByBusiness } from "@/lib/agents/actions";
 import { getTasksByBusiness } from "@/lib/tasks/actions";
@@ -84,18 +86,24 @@ export default async function TasksDashboardPage({
       {/* Board area */}
       <div className="flex-1 overflow-auto">
         {flat.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <div className="space-y-1">
-              <p className="text-[13px] font-medium text-foreground/70">No tasks yet</p>
-              <p className="text-[12px] text-muted-foreground/50">
-                Tasks track orchestration work from backlog through done.
+          <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-16 text-center">
+            <span className="flex size-16 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
+              <ClipboardList className="size-8" aria-hidden />
+            </span>
+            <div className="max-w-md space-y-2">
+              <p className="text-[15px] font-semibold text-foreground">Ingen tasks endnu</p>
+              <p className="text-[13px] text-muted-foreground/80">
+                Opret en mission og lad Product Owner kickstarte sprint-planlægningen.
               </p>
             </div>
-            <Button asChild size="sm" variant="outline" data-testid="tasks-empty-cta">
-              <Link href={`/dashboard/tasks/new?businessId=${encodeURIComponent(businessId)}`}>
-                Create first task
-              </Link>
-            </Button>
+            <div className="flex flex-col items-center gap-4">
+              <Button asChild variant="default" data-testid="tasks-empty-cta">
+                <Link href={`/dashboard/missions?businessId=${encodeURIComponent(businessId)}`}>
+                  Gå til missions →
+                </Link>
+              </Button>
+              <ConductorNudge businessId={businessId} />
+            </div>
           </div>
         ) : (
           <div className="p-6">

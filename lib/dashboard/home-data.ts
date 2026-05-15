@@ -1,5 +1,13 @@
 import { getDb } from "@/db/index";
-import { agents, approvals, businesses, orchestrationEvents, tasks, userBusinesses } from "@/db/schema";
+import {
+  agents,
+  approvals,
+  businesses,
+  missions,
+  orchestrationEvents,
+  tasks,
+  userBusinesses,
+} from "@/db/schema";
 import { countPendingApprovalsForUser } from "@/lib/approvals/queries";
 import { getAgentStatus } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
@@ -12,6 +20,17 @@ export type DashboardSummaryStats = {
   pendingApprovals: number;
   activeAgents: number;
 };
+
+/** Total missions rows across every business the user can access (for dashboard empty UX). */
+export async function countMissionsAcrossUserBusinesses(userId: string): Promise<number> {
+  const db = getDb();
+  const [row] = await db
+    .select({ n: count() })
+    .from(missions)
+    .innerJoin(userBusinesses, eq(missions.businessId, userBusinesses.businessId))
+    .where(eq(userBusinesses.userId, userId));
+  return Number(row?.n ?? 0);
+}
 
 export async function getDashboardSummaryStats(userId: string): Promise<DashboardSummaryStats> {
   const taskMap = await getTaskCountsForUserBusinesses();
