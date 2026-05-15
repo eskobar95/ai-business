@@ -595,6 +595,10 @@ export const missions = pgTable(
     prd: text("prd").notNull().default(""),
     /** draft | active | completed | archived */
     status: text("status").notNull().default("draft"),
+    /** Markdown bullet list of acceptance criteria defining "done". */
+    validationContract: text("validation_contract").notNull().default(""),
+    /** new_project | existing_codebase | feature | bugfix */
+    projectType: text("project_type").notNull().default("new_project"),
     notionId: text("notion_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

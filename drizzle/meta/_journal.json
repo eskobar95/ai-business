@@ -169,6 +169,13 @@
       "when": 1778935000000,
       "tag": "0023_fix_rename_projects_to_missions",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778856587161,
+      "tag": "0024_black_thunderbird",
+      "breakpoints": true
     }
   ]
 }

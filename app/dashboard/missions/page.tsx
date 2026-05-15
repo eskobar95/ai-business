@@ -33,15 +33,15 @@ export default async function MissionsPage({
       <div className="flex-1 overflow-y-auto px-6 py-8">
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] py-16 text-center">
-            <p className="text-[14px] text-muted-foreground">No missions yet</p>
+            <p className="text-[14px] font-semibold text-foreground">No missions yet</p>
             <p className="max-w-md text-[12px] text-muted-foreground/70">
-              Create a mission to attach PRDs and sprints, then tie tasks back to orchestration flows.
+              Start by creating your first mission. Your Product Owner will turn it into a sprint brief.
             </p>
             <Link
               href={`/dashboard/missions/new?businessId=${encodeURIComponent(businessId)}`}
               className="mt-2 rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
-              Create your first mission
+              Create first mission
             </Link>
           </div>
         ) : (

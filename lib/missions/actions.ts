@@ -17,6 +17,8 @@ export async function createMission(params: {
   name: string;
   prd?: string;
   status?: "draft" | "active" | "completed" | "archived";
+  validationContract?: string;
+  projectType?: "new_project" | "existing_codebase" | "feature" | "bugfix";
 }): Promise<{ id: string }> {
   await ensureBusiness(params.businessId);
   const db = getDb();
@@ -30,6 +32,8 @@ export async function createMission(params: {
       name: nm,
       prd: params.prd ?? "",
       status: params.status ?? "draft",
+      validationContract: params.validationContract ?? "",
+      projectType: params.projectType ?? "new_project",
       updatedAt: new Date(),
     })
     .returning({ id: missions.id });
