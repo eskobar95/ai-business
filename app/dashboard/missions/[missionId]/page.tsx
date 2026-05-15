@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MissionDetailTabs } from "@/components/missions/mission-detail-tabs";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 import { getMissionBundle } from "@/lib/missions/actions";
+import { POBriefButton } from "./po-brief-button";
 import { SprintList } from "./sprint-list";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,12 @@ export default async function MissionDetailPage({
         tasks={bundle.tasks}
         approvalsRows={bundle.approvals}
         sprintSlot={
-          <SprintList missionId={missionId} taskCountBySprint={taskCountBySprint} />
+          <>
+            {bundle.mission.sprintsMany.length === 0 ? (
+              <POBriefButton businessId={businessId} missionId={missionId} />
+            ) : null}
+            <SprintList missionId={missionId} taskCountBySprint={taskCountBySprint} />
+          </>
         }
       />
     </div>
