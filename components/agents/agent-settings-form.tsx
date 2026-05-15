@@ -38,7 +38,7 @@ import { AGENT_PLATFORM_ICONS } from "@/components/agents/agent-platform-icons";
 import { AgentRosterAvatar } from "@/components/agents/agent-roster-avatar";
 import { cn } from "@/lib/utils";
 
-type Peer = Pick<typeof agents.$inferSelect, "id" | "name">;
+type Peer = Pick<typeof agents.$inferSelect, "id" | "name" | "isPlatformDefault">;
 
 type PlatformSystemRole = typeof systemRolesTable.$inferSelect;
 
@@ -399,7 +399,9 @@ export function AgentSettingsForm({
             onChange={setReportsToAgentId}
             options={[
               { id: "", label: "— None —" },
-              ...peers.map((p) => ({ id: p.id, label: p.name })),
+              ...peers
+                .filter((p) => !p.isPlatformDefault)
+                .map((p) => ({ id: p.id, label: p.name })),
             ]}
           />
         </div>
@@ -442,31 +444,33 @@ export function AgentSettingsForm({
       </div>
 
       {/* ── Danger zone ───────────────────────────────────────────── */}
-      <div className="mt-8 border-t border-white/[0.06] pt-5">
-        <p className="section-label mb-3 text-destructive/60">Danger zone</p>
-        <div className="flex items-center justify-between rounded-md border border-destructive/20 px-4 py-3">
-          <div>
-            <p className="text-[13px] font-medium text-foreground">Delete this agent</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/50">
-              Permanently remove this agent and all associated data. Cannot be undone.
-            </p>
+      {!agent.isPlatformDefault ? (
+        <div className="mt-8 border-t border-white/[0.06] pt-5">
+          <p className="section-label mb-3 text-destructive/60">Danger zone</p>
+          <div className="flex items-center justify-between rounded-md border border-destructive/20 px-4 py-3">
+            <div>
+              <p className="text-[13px] font-medium text-foreground">Delete this agent</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground/50">
+                Permanently remove this agent and all associated data. Cannot be undone.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="agent-delete"
+              disabled={pending}
+              onClick={handleDelete}
+              className={cn(
+                "flex cursor-pointer items-center rounded-md border border-destructive/30 px-3 py-1.5",
+                "text-[12px] font-medium text-destructive/70 transition-colors",
+                "hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive",
+                "disabled:pointer-events-none disabled:opacity-40",
+              )}
+            >
+              Delete agent
+            </button>
           </div>
-          <button
-            type="button"
-            data-testid="agent-delete"
-            disabled={pending}
-            onClick={handleDelete}
-            className={cn(
-              "flex cursor-pointer items-center rounded-md border border-destructive/30 px-3 py-1.5",
-              "text-[12px] font-medium text-destructive/70 transition-colors",
-              "hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive",
-              "disabled:pointer-events-none disabled:opacity-40",
-            )}
-          >
-            Delete agent
-          </button>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

@@ -30,7 +30,7 @@ const systemRolesFindFirst = vi.hoisted(() =>
 );
 
 vi.mock("@/lib/agents/actions", () => ({
-  assertUserOwnsAgent: vi.fn(async () => ({ userId: "user-1", businessId: "biz-1" })),
+  assertUserOwnsAgent: vi.fn(async () => ({ userId: "user-1", businessId: "biz-1", isPlatformDefault: false })),
 }));
 
 vi.mock("@/lib/settings/cursor-api-key", () => ({

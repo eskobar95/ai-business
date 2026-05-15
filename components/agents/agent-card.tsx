@@ -11,6 +11,7 @@ export type AgentCardAgent = {
   role: string;
   avatarUrl?: string | null;
   iconKey?: string | null;
+  isPlatformDefault?: boolean;
 };
 
 function statusDot(status: AgentLifecycleStatus) {
@@ -63,9 +64,19 @@ export function AgentCard(props: {
             sizeClasses="size-8 rounded-md mt-0.5"
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em] text-foreground">
-              {a.name}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="truncate text-[13px] font-medium tracking-[-0.01em] text-foreground">
+                {a.name}
+              </p>
+              {a.isPlatformDefault ? (
+                <span
+                  className="shrink-0 rounded border border-white/[0.14] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-muted-foreground"
+                  data-testid="agent-platform-badge"
+                >
+                  Platform
+                </span>
+              ) : null}
+            </div>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{a.role}</p>
           </div>
           <span

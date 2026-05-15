@@ -6,7 +6,7 @@ const updateMock = vi.fn();
 const insertMock = vi.fn();
 
 vi.mock("@/lib/agents/actions", () => ({
-  assertUserOwnsAgent: vi.fn(async () => ({ userId: "u1", businessId: "b1" })),
+  assertUserOwnsAgent: vi.fn(async () => ({ userId: "u1", businessId: "b1", isPlatformDefault: false })),
 }));
 
 vi.mock("@/db/index", () => ({

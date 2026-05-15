@@ -195,9 +195,16 @@ export default async function AgentDetailPage({
           {agent.name.slice(0, 2).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
-            {agent.name}
-          </h1>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+              {agent.name}
+            </h1>
+            {agent.isPlatformDefault ? (
+              <span className="shrink-0 rounded border border-white/[0.14] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Platform
+              </span>
+            ) : null}
+          </div>
           <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{agent.role}</p>
         </div>
         <StatusPill status={lifecycle} />

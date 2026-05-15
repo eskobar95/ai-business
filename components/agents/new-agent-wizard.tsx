@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { createAgent } from "@/lib/agents/actions";
 import type { agents } from "@/db/schema";
 
-type Peer = Pick<typeof agents.$inferSelect, "id" | "name">;
+type Peer = Pick<typeof agents.$inferSelect, "id" | "name" | "isPlatformDefault">;
 
 export function NewAgentWizard({ businessId, peerAgents }: { businessId: string; peerAgents: Peer[] }) {
   const router = useRouter();
@@ -116,7 +116,9 @@ export function NewAgentWizard({ businessId, peerAgents }: { businessId: string;
               }
             >
               <option value="">— None —</option>
-              {peerAgents.map((p) => (
+              {peerAgents
+                .filter((p) => !p.isPlatformDefault)
+                .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
