@@ -220,7 +220,7 @@ export function ConductorChatWidgetClient({
         </div>
 
         {/* Input */}
-        <div className="border-t border-white/[0.06] bg-[#0f0f11] px-3 pb-3 pt-2.5">
+        <div className="border-t border-white/[0.06] bg-[#0f0f11] px-3 pb-7 pt-2.5">
           <ChatInput
             onSend={handleSend}
             disabled={!sessionId || bootstrapLoading || isLoading}
