@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MissionDetailTabs } from "@/components/missions/mission-detail-tabs";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 import { getMissionBundle } from "@/lib/missions/actions";
+import { SprintList } from "./sprint-list";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,13 @@ export default async function MissionDetailPage({
     notFound();
   }
 
+  const taskCountBySprint = new Map<string, number>();
+  for (const t of bundle.tasks) {
+    if (t.sprintId) {
+      taskCountBySprint.set(t.sprintId, (taskCountBySprint.get(t.sprintId) ?? 0) + 1);
+    }
+  }
+
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-6">
@@ -48,6 +56,9 @@ export default async function MissionDetailPage({
         mission={bundle.mission}
         tasks={bundle.tasks}
         approvalsRows={bundle.approvals}
+        sprintSlot={
+          <SprintList missionId={missionId} taskCountBySprint={taskCountBySprint} />
+        }
       />
     </div>
   );
