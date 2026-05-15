@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/ui/page-header";
 import { TasksKanbanBoard } from "@/components/tasks/tasks-kanban-board";
@@ -30,18 +31,33 @@ function groupByStatus<T extends { status: TaskStatus }>(rows: T[]): Record<Task
 export default async function TasksDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ businessId?: string }>;
+  searchParams: Promise<{ businessId?: string; teamId?: string }>;
 }) {
   const sp = await searchParams;
   const businessId = await resolveBusinessIdParam(sp.businessId, "/dashboard/tasks");
   const businesses = await loadUserBusinesses();
   void businesses;
 
-  const [tree, agents, teams] = await Promise.all([
-    getTasksByBusiness(businessId),
+  const rawTeamId = typeof sp.teamId === "string" ? sp.teamId.trim() : "";
+  const teamIdFromUrl = rawTeamId.length > 0 ? rawTeamId : undefined;
+
+  const [agents, teams] = await Promise.all([
     getAgentsByBusiness(businessId),
     listTeamsByBusiness(businessId),
   ]);
+
+  let scopedTeamId: string | undefined;
+  let activeTeamName: string | undefined;
+  if (teamIdFromUrl) {
+    const match = teams.find((t) => t.id === teamIdFromUrl);
+    if (!match) {
+      redirect(`/dashboard/tasks?businessId=${encodeURIComponent(businessId)}`);
+    }
+    scopedTeamId = match.id;
+    activeTeamName = match.name;
+  }
+
+  const tree = await getTasksByBusiness(businessId, scopedTeamId);
 
   const flat = flattenTaskTree(tree);
   const grouped = groupByStatus(flat);
@@ -90,6 +106,8 @@ export default async function TasksDashboardPage({
               businessId={businessId}
               agents={agentList}
               teams={teamList}
+              activeTeamName={activeTeamName}
+              scopedTeamId={scopedTeamId}
             />
           </div>
         )}
