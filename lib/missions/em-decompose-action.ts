@@ -252,9 +252,10 @@ function buildEmAgentPrompt(params: {
 export async function runEngineeringManagerDecomposition(
   businessId: string,
   approvalId: string,
+  callerUserId?: string,
 ): Promise<{ success: true; taskIds: string[] } | { success: false; error: string }> {
   try {
-    const userId = await requireSessionUserId();
+    const userId = callerUserId ?? (await requireSessionUserId());
     await assertUserBusinessAccess(userId, businessId);
 
     const db = getDb();

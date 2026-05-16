@@ -63,6 +63,7 @@ async function assertApprovalRowForUser(approvalId: string) {
 }
 
 export async function approveArtifact(approvalId: string, comment: string): Promise<void> {
+  const userId = await requireSessionUserId();
   const row = await assertApprovalRowForUser(approvalId);
   if (row.approvalStatus !== "pending") {
     throw new Error("Approval is not pending");
@@ -95,7 +96,7 @@ export async function approveArtifact(approvalId: string, comment: string): Prom
   // Auto-trigger EM decomposition when a PO sprint brief is approved.
   const artifactRef = row.artifactRef as Record<string, unknown>;
   if (artifactRef?.artifactType === "po_sprint_brief" && row.businessId) {
-    await runEngineeringManagerDecomposition(row.businessId, approvalId);
+    await runEngineeringManagerDecomposition(row.businessId, approvalId, userId);
   }
 }
 
@@ -157,6 +158,6 @@ export async function backfillApprovedSprintBriefs(
   });
 
   await Promise.allSettled(
-    pending.map((r) => runEngineeringManagerDecomposition(businessId, r.id)),
+    pending.map((r) => runEngineeringManagerDecomposition(businessId, r.id, resolvedUserId)),
   );
 }
