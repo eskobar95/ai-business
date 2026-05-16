@@ -3,6 +3,7 @@
 import { getDb } from "@/db/index";
 import { approvals } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
+import { runEngineeringManagerDecomposition } from "@/lib/missions/em-decompose-action";
 import { logAgentLifecycleStatus, logEvent } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
 import { eq } from "drizzle-orm";
@@ -88,6 +89,12 @@ export async function approveArtifact(approvalId: string, comment: string): Prom
 
   if (row.agentId && row.businessId) {
     await logAgentLifecycleStatus(row.businessId, row.agentId, "idle", { approvalId });
+  }
+
+  // Auto-trigger EM decomposition when a PO sprint brief is approved.
+  const artifactRef = row.artifactRef as Record<string, unknown>;
+  if (artifactRef?.artifactType === "po_sprint_brief" && row.businessId) {
+    await runEngineeringManagerDecomposition(row.businessId, approvalId);
   }
 }
 
