@@ -24,18 +24,18 @@ The team has framed the platform and connected GitHub, but does not know how to 
 
 | State | What |
 |-------|------|
-| **Branch** | `feat/phase-a-po-repo-tools` — open PR → `main` for Phase A |
-| **Phase A** | PO chat **prefetch** (`6521d3c`): `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, SSE `repo_tool_start` / `repo_tool_result`, inject `## Requested files` (Product Owner only, `slug === product_owner`, GitHub connected). |
-| **Phase 0 on `main`** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — chat shell + SSE merge `a54f201`; follow-up doc commit `13454d6` |
-| **`origin/main` baseline** | Repo snapshot + universal chat shell + AI Elements |
+| **Branch** | `main` |
+| **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` on `origin/main` (feat commits incl. `6521d3c`; E2E fix hides Conductor FAB before communication delete — `31bf79c`) |
+| **`origin/main` now** | Phase 0 + Phase A: chat shell + PO prefetch (`repo-files`, `mention-paths`, SSE `repo_tool_*`, PO-only inject `## Requested files`) |
+| **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Merge Phase A PR, then start **Phase B** (mission wizard repo panel) — see § Phase B.
+**Action for new session:** Work from **`main`**. Start **Phase B** (mission wizard repo panel) — see § Phase B.
 
-Recent commits (verify with `git log`):
+Recent commits (`main`, newest first — verify with `git log`):
+- `f6df374` — merge PR #42 (Phase A)
+- `31bf79c` — fix(e2e): hide Conductor FAB before communication edge delete
 - `6521d3c` — feat: PO chat repo prefetch (GitHub Contents API)
-- `13454d6` — docs: Phase 0 merged note
-- `a54f201` — merge PR #41 (Phase 0)
 
 ### 2.2 End-to-end flow (as implemented today)
 
