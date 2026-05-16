@@ -15,10 +15,11 @@
  */
 
 import { getDb } from "@/db/index";
-import { businesses, githubInstallations, githubInstallationSelectedRepos } from "@/db/schema";
+import { businesses, githubInstallations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 import { getInstallationToken } from "./client";
+import { getSelectedReposByInstallation } from "./installation-db";
 
 interface GhFile { path: string; type: "blob" | "tree" }
 interface GhTree  { tree: GhFile[]; truncated: boolean }
@@ -67,25 +68,32 @@ const KEY_FILES = [
   "Dockerfile",
 ];
 
-/** Resolve the primary repo for a business (selected repo > githubRepoUrl). */
+/**
+ * Resolve the primary repo for a business.
+ * Order: explicit selection → all repos on the installation → `businesses.github_repo_url`.
+ * Matches Grill-Me / settings copy ("no selection → use all available repos").
+ */
 async function resolveRepoUrl(businessId: string): Promise<string | null> {
   const db = getDb();
   const installation = await db.query.githubInstallations.findFirst({
     where: eq(githubInstallations.businessId, businessId),
-    columns: { id: true },
+    columns: { id: true, repos: true },
   });
   if (installation) {
-    const selected = await db.query.githubInstallationSelectedRepos.findFirst({
-      where: eq(githubInstallationSelectedRepos.installationId, installation.id),
-      columns: { repoUrl: true },
-    });
-    if (selected?.repoUrl) return selected.repoUrl;
+    const selected = await getSelectedReposByInstallation(db, installation.id);
+    const candidates =
+      selected.length > 0 ? selected : ((installation.repos as string[] | null) ?? []);
+    if (candidates.length > 0) {
+      const first = candidates[0]!.trim();
+      return first.startsWith("http") ? first : `https://github.com/${first}`;
+    }
   }
   const biz = await db.query.businesses.findFirst({
     where: eq(businesses.id, businessId),
     columns: { githubRepoUrl: true },
   });
-  return biz?.githubRepoUrl ?? null;
+  const legacy = biz?.githubRepoUrl?.trim();
+  return legacy ? legacy : null;
 }
 
 /**

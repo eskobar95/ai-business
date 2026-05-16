@@ -2,6 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import type {
+  ChatPlanBlock,
+  ChatSource,
+  ChatTaskBlock,
+  ChatToolCall,
+} from "@/lib/chat/chat-message-types";
+
 export type MessageRole = "user" | "assistant";
 
 export type ChatMessage = {
@@ -11,6 +18,7 @@ export type ChatMessage = {
   stage?: string;
   thinking?: string;
   thinkingDone?: boolean;
+  thinkingDurationSec?: number;
   artifact?: {
     type: "document" | "react";
     title: string;
@@ -20,6 +28,12 @@ export type ChatMessage = {
   createdAt: Date;
   /** Optional structured questions rendered inside the assistant bubble (e.g. from `initialMessages`). */
   questions?: Array<{ id: string; text: string; options?: string[] }>;
+  /** Step labels for chain-of-thought UI (latest stage appended during streaming). */
+  chainSteps?: string[];
+  toolCalls?: ChatToolCall[];
+  sources?: ChatSource[];
+  plan?: ChatPlanBlock;
+  tasks?: ChatTaskBlock[];
 };
 
 export type UseChatStreamReturn = {
@@ -110,9 +124,16 @@ export function useChatStream(): UseChatStreamReturn {
                 if (m.id !== assistantId) return m;
 
                 switch (eventType) {
-                  case "stage":
-                    setStage(payload.label as string);
-                    return { ...m, stage: payload.label as string };
+                  case "stage": {
+                    const label = payload.label as string;
+                    setStage(label);
+                    const prevSteps = m.chainSteps ?? [];
+                    const nextSteps =
+                      prevSteps[prevSteps.length - 1] === label
+                        ? prevSteps
+                        : [...prevSteps, label];
+                    return { ...m, stage: label, chainSteps: nextSteps };
+                  }
                   case "thinking_start":
                     return { ...m, thinking: "", thinkingDone: false };
                   case "thinking_delta":
@@ -121,12 +142,54 @@ export function useChatStream(): UseChatStreamReturn {
                       thinking: (m.thinking ?? "") + (payload.delta as string),
                     };
                   case "thinking_end":
-                    return { ...m, thinkingDone: true };
-                  case "text_delta":
                     return {
                       ...m,
-                      content: m.content + (payload.delta as string),
+                      thinkingDone: true,
+                      thinkingDurationSec:
+                        typeof payload.durationSec === "number"
+                          ? payload.durationSec
+                          : m.thinkingDurationSec,
                     };
+                  case "tool_call": {
+                    const id = String(payload.id ?? "");
+                    const name = String(payload.name ?? "tool");
+                    const state = payload.state as ChatToolCall["state"];
+                    const prevTools = m.toolCalls ?? [];
+                    const idx = prevTools.findIndex((t) => t.id === id);
+                    const nextTool: ChatToolCall = {
+                      id,
+                      name,
+                      state,
+                      input: payload.input,
+                      result:
+                        typeof payload.result === "string" ? payload.result : undefined,
+                      errorText:
+                        typeof payload.errorText === "string"
+                          ? payload.errorText
+                          : undefined,
+                    };
+                    const toolCalls =
+                      idx >= 0
+                        ? prevTools.map((t, i) => (i === idx ? { ...t, ...nextTool } : t))
+                        : [...prevTools, nextTool];
+                    return { ...m, toolCalls };
+                  }
+                  case "text_delta": {
+                    const delta = payload.delta as string;
+                    const isFirstContent = !m.content;
+                    const prevSteps = m.chainSteps ?? [];
+                    const writingLabel = "Writing response";
+                    const chainSteps =
+                      isFirstContent && !prevSteps.includes(writingLabel)
+                        ? [...prevSteps, writingLabel]
+                        : prevSteps;
+                    return {
+                      ...m,
+                      content: m.content + delta,
+                      chainSteps,
+                      stage: isFirstContent ? writingLabel : m.stage,
+                    };
+                  }
                   case "artifact_start":
                     return {
                       ...m,

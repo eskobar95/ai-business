@@ -1,40 +1,82 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 export function StageIndicator({
   stage,
+  steps,
   active,
+  compact,
 }: {
   stage?: string | null;
-  /** When false, fades out smoothly. */
+  /** Optional multi-step trail; falls back to single `stage` label */
+  steps?: string[];
   active?: boolean;
+  compact?: boolean;
 }) {
-  const [visible, setVisible] = useState(Boolean(stage && active !== false));
+  const isActive = active !== false;
 
-  useEffect(() => {
-    const on = Boolean(stage && active !== false);
-    const t = window.setTimeout(() => setVisible(on), on ? 0 : 200);
-    return () => window.clearTimeout(t);
-  }, [stage, active]);
+  const labels =
+    steps && steps.length > 0
+      ? steps
+      : stage
+        ? [stage]
+        : isActive
+          ? ["Starting…"]
+          : [];
 
-  if (!stage || !visible) return null;
+  if (labels.length === 0) return null;
 
   return (
-    <div
+    <ChainOfThought
       className={cn(
-        "mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-[opacity,transform] duration-300 ease-out",
-        active === false ? "pointer-events-none scale-95 opacity-0" : "opacity-100",
+        "chat-processing mb-2 w-full rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2.5",
+        compact && "px-2.5 py-2",
+        !isActive && "opacity-85",
       )}
-      aria-live="polite"
+      defaultOpen
+      open={isActive ? true : undefined}
     >
-      <span className="relative flex size-2">
-        <span className="bg-primary/55 absolute inline-flex size-full animate-ping rounded-full" />
-        <span className="bg-primary relative inline-flex size-2 rounded-full" />
-      </span>
-      <span className="text-foreground/90">{stage}</span>
-    </div>
+      <ChainOfThoughtHeader
+        className={cn(
+          "text-foreground/90 text-[13px] font-medium",
+          compact && "text-xs",
+        )}
+      >
+        {isActive ? "In progress" : "Steps"}
+      </ChainOfThoughtHeader>
+      <ChainOfThoughtContent className="pt-1">
+        {labels.map((label, i) => {
+          const isLast = i === labels.length - 1;
+          const status = isActive && isLast ? "active" : "complete";
+          return (
+            <ChainOfThoughtStep
+              key={`${label}-${i}`}
+              className={cn(isLast && isActive && "text-foreground")}
+              label={
+                <span className="flex items-center gap-2 text-[13px]">
+                  {isActive && isLast && (
+                    <Loader2
+                      className="size-3.5 shrink-0 animate-spin text-primary"
+                      aria-hidden
+                    />
+                  )}
+                  {label}
+                </span>
+              }
+              status={status}
+            />
+          );
+        })}
+      </ChainOfThoughtContent>
+    </ChainOfThought>
   );
 }

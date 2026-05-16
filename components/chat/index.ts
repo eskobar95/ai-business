@@ -1,4 +1,7 @@
 export { ChatLayout } from "./chat-layout";
+export { ChatShell } from "./chat-shell";
+export { CHAT_CONFIGS, resolveChatFeatures } from "@/lib/chat/chat-config";
+export type { ChatFeatures, ChatSurfaceKey } from "@/lib/chat/chat-config";
 export { ChatMessages } from "./chat-messages";
 export { ChatBubble } from "./chat-bubble";
 export { ChatInput } from "./chat-input";

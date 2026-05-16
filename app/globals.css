@@ -3,7 +3,21 @@
 @import "shadcn/tailwind.css";
 @import "@neondatabase/auth/ui/tailwind";
 
+/* AI Elements — MessageResponse (streamdown) */
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
+
+/* AI Elements — align with platform chat chrome */
+.ai-chat-shell [data-slot="plan"],
+.ai-chat-shell .group.not-prose.w-full.rounded-md.border {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ai-chat-shell .chat-processing [data-state="open"] {
+  border-color: rgba(168, 235, 18, 0.22);
+}
 
 @theme inline {
   --color-background: var(--background);
