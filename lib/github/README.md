@@ -13,6 +13,8 @@ Server-only modules — **never** import secrets or `getInstallationToken()` fro
 | `repo-context.ts` | `buildRepoContextForPrompt`; **exported** `resolveRepoUrl` / `parseOwnerRepo` — markdown snapshot (README, tree, key files, PRs/issues/commits). |
 | `mention-paths.ts` | `parseMentionedRepoPaths` — extracts repo-relative paths from chat text for PO prefetch (max 5). |
 | `repo-files.ts` | `readRepoFile` / `listRepoPath` — GitHub Contents API (installation token); traversal / `.env` / extension allowlist; **100 KiB** max decoded read (`MAX_REPO_FILE_BYTES`). |
+| `repo-summary-types.ts` | `RepoSummary` — serializable shape for mission UI (safe for Client Components via `import type`). |
+| `repo-summary.ts` | `buildRepoSummaryForMission` — repo URL + root listing + 5 commits for wizard/detail panels (server-only). |
 | `agent-git-config.ts` | Builds `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env map for runner subprocesses. |
 | `installation-queries.ts` | Safe read for Settings (no tokens). |
 | `actions.ts` | `disconnectGithubInstallation` — revokes current token via GitHub `DELETE /installation/token` (throws from `rest.ts` on non-404 errors; caller logs `console.warn` but still deletes the DB row). |
