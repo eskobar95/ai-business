@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { Agent } from "@cursor/sdk";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
-import { agents, chatMessages, chatSessions } from "@/db/schema";
+import { agents, businesses, chatMessages, chatSessions, memory } from "@/db/schema";
 import { auth } from "@/lib/auth/server";
 import {
   applyConductorInstructionPlaceholders,
@@ -11,6 +11,56 @@ import {
 } from "@/lib/conductor/conductor-context";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
+
+/** Strip HTML tags from Tiptap-stored memory content for plain-text injection. */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Builds a business context prefix for non-Conductor agents.
+ * Keeps agents grounded in the right business — prevents them from
+ * reading the platform codebase as their context.
+ */
+async function buildBusinessContextPrefix(businessId: string): Promise<string> {
+  const db = getDb();
+
+  const [biz] = await db
+    .select({ name: businesses.name })
+    .from(businesses)
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+
+  const soulRow = await db
+    .select({ content: memory.content })
+    .from(memory)
+    .where(and(eq(memory.businessId, businessId), eq(memory.scope, "business"), isNull(memory.agentId)))
+    .orderBy(desc(memory.updatedAt))
+    .limit(1);
+
+  const businessName = biz?.name?.trim() || "the business";
+  const soulText = soulRow[0]?.content ? htmlToPlainText(soulRow[0].content) : "";
+
+  const lines: string[] = [
+    `## Business context`,
+    `You are working for **${businessName}**.`,
+  ];
+
+  if (soulText) {
+    lines.push(``, `### Business memory`, soulText);
+  }
+
+  return lines.join("\n");
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,9 +126,15 @@ export async function POST(
   }
 
   let soulContent = agentRow.documents.find((d) => d.slug === "soul")?.content ?? "";
+
   if (agentRow.isPlatformDefault) {
+    // Conductor: inject full orchestration snapshot (roster, missions, approvals)
     const snap = await loadConductorOrchestrationSnapshot(businessId);
     soulContent = applyConductorInstructionPlaceholders(soulContent, snap);
+  } else {
+    // All other agents: prefix with business context so they know which business they serve
+    const bizPrefix = await buildBusinessContextPrefix(businessId);
+    soulContent = bizPrefix + (soulContent ? `\n\n---\n\n${soulContent}` : "");
   }
 
   const apiKey = await resolveCursorApiKeyForBusiness(businessId);
@@ -122,10 +178,11 @@ export async function POST(
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
 
+      // Note: no `local.cwd` — agents must not read the platform codebase as their
+      // context. Business context is injected via the system prompt instead.
       const agentOptions = {
         apiKey,
         model: { id: "composer-2" as const },
-        local: { cwd: process.cwd() },
       };
 
       let cursorAgent: Awaited<ReturnType<typeof Agent.create>> | null = null;
