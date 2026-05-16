@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   },
   /** Prevent bundling Cursor SDK (dynamic graph pulls .d.ts.map into webpack). */
   serverExternalPackages: ["@cursor/sdk"],
+  /** Transpile @streamdown/code so Next.js bundles its own shiki 3.x rather than
+   *  trying to externalize it against the project-level shiki 4.x. */
+  transpilePackages: ["@streamdown/code"],
 };
 
 export default withSentryConfig(nextConfig, {
