@@ -29,14 +29,16 @@ function htmlToPlainText(html: string): string {
 
 /**
  * Builds a business context prefix for non-Conductor agents.
- * Keeps agents grounded in the right business — prevents them from
- * reading the platform codebase as their context.
+ * Returns { prefix, localPath } so the route can pass localPath to local.cwd.
  */
-async function buildBusinessContextPrefix(businessId: string): Promise<string> {
+async function buildBusinessContext(businessId: string): Promise<{
+  prefix: string;
+  localPath: string | null;
+}> {
   const db = getDb();
 
   const [biz] = await db
-    .select({ name: businesses.name })
+    .select({ name: businesses.name, localPath: businesses.localPath })
     .from(businesses)
     .where(eq(businesses.id, businessId))
     .limit(1);
@@ -49,18 +51,20 @@ async function buildBusinessContextPrefix(businessId: string): Promise<string> {
     .limit(1);
 
   const businessName = biz?.name?.trim() || "the business";
+  const localPath = biz?.localPath ?? null;
   const soulText = soulRow[0]?.content ? htmlToPlainText(soulRow[0].content) : "";
 
   const lines: string[] = [
     `## Business context`,
     `You are working for **${businessName}**.`,
+    `IMPORTANT: Only use information provided in this prompt. Do not reference any other local codebase or workspace unless explicitly shown below.`,
   ];
 
   if (soulText) {
     lines.push(``, `### Business memory`, soulText);
   }
 
-  return lines.join("\n");
+  return { prefix: lines.join("\n"), localPath };
 }
 
 export const runtime = "nodejs";
@@ -134,15 +138,20 @@ export async function POST(
     soulContent = applyConductorInstructionPlaceholders(soulContent, snap);
   } else {
     // All other agents: prefix with business context + repo snapshot (if GitHub is connected)
-    const [bizPrefix, repoContext] = await Promise.all([
-      buildBusinessContextPrefix(businessId),
+    const [bizCtx, repoContext] = await Promise.all([
+      buildBusinessContext(businessId),
       buildRepoContextForPrompt(businessId),
     ]);
-    const contextParts = [bizPrefix];
+    const contextParts = [bizCtx.prefix];
     if (repoContext) contextParts.push(repoContext);
     if (soulContent) contextParts.push("---", soulContent);
     soulContent = contextParts.join("\n\n");
+    // Store localPath so we can pass it to local.cwd below
+    agentLocalPath = bizCtx.localPath;
   }
+
+  // agentLocalPath is set by the non-Conductor branch above; null means no local context
+  let agentLocalPath: string | null = null;
 
   const apiKey = await resolveCursorApiKeyForBusiness(businessId);
   if (!apiKey) {
@@ -185,11 +194,12 @@ export async function POST(
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
 
-      // Note: no `local.cwd` — agents must not read the platform codebase as their
-      // context. Business context is injected via the system prompt instead.
+      // Use the business's configured local path (e.g. /Users/.../mercflow) as
+      // the agent's workspace. Falls back to no local context if not configured.
       const agentOptions = {
         apiKey,
         model: { id: "composer-2" as const },
+        ...(agentLocalPath ? { local: { cwd: agentLocalPath } } : {}),
       };
 
       let cursorAgent: Awaited<ReturnType<typeof Agent.create>> | null = null;
