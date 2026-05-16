@@ -94,6 +94,12 @@ async function buildBusinessContext(
     );
   }
 
+  // Business memory injected BEFORE format instructions so the agent has full
+  // context when formulating mission blocks and answers.
+  if (soulText) {
+    lines.push(``, `### Business memory`, soulText);
+  }
+
   if (isPo) {
     lines.push(
       "",
@@ -103,8 +109,14 @@ async function buildBusinessContext(
       "",
       "<mission>",
       "name: Short mission title",
-      "goal: Two to five sentences describing scope and outcomes (PRD-style summary).",
-      "validationContract: Testable done criteria the team can verify.",
+      "goal: A rich PRD-style summary (NOT a single sentence). Use several short paragraphs or bullet lines under these headings in plain text:",
+      "  - Context / problem — why this matters now.",
+      "  - Scope — what is IN scope (concrete deliverables or areas).",
+      "  - Out of scope — what we explicitly will NOT do in this mission.",
+      "  - Success — what \"good\" looks like for the user or business.",
+      "Aim for roughly **150–500 words** unless the mission is tiny; mirror detail depth from your answer above.",
+      "Ground every section in the business memory and repository snapshot above — name specific modules, past decisions, or brand values where relevant.",
+      "validationContract: **At least three** separate testable criteria (one per line is fine), each something a reviewer can verify without guessing.",
       "projectType: new_project | existing_codebase | feature | bugfix",
       "</mission>",
       "",
@@ -112,11 +124,8 @@ async function buildBusinessContext(
       "- Emit one block per distinct mission; omit the blocks entirely when unsure.",
       "- Never fabricate missions solely to populate blocks.",
       "- Place `<mission>` blocks only after your main answer so the user reads context first.",
+      "- The `goal` field must be substantive enough that a PM could brief engineers without asking follow-ups — if you already wrote detail above, **carry that substance into `goal`** instead of repeating only a one-line summary.",
     );
-  }
-
-  if (soulText) {
-    lines.push(``, `### Business memory`, soulText);
   }
 
   return { prefix: lines.join("\n") };
@@ -261,6 +270,13 @@ export async function POST(
       gitHubRepoSectionPresent: gitHubRepoConnected,
     });
     const contextParts = [bizCtx.prefix];
+
+    // Prepend the agent's role document (slug "agents") if present — gives PO its
+    // MUST/MUST-NOT rules and bounded output format from the Enterprise template.
+    const agentsDoc = agentRow.documents.find((d) => d.slug === "agents")?.content ?? "";
+    if (agentsDoc.trim()) {
+      contextParts.unshift(agentsDoc.trim());
+    }
     if (repoContext) contextParts.push(repoContext);
     else contextParts.push(`\n> No GitHub repository connected. Connect one in Settings → Integrations.`);
     if (soulContent) contextParts.push("---", soulContent);

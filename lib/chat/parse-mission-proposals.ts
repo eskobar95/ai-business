@@ -59,7 +59,8 @@ function parseMissionBlockInner(inner: string): ParsedMissionProposal | null {
       fields[currentKey] = (m[2] ?? "").trimStart();
       continue;
     }
-    if (currentKey && fields[currentKey] !== undefined && line.trim()) {
+    // Preserve blank lines within a field value so multi-paragraph goal/prd is not truncated.
+    if (currentKey && fields[currentKey] !== undefined) {
       fields[currentKey] = `${fields[currentKey]}\n${line.trimEnd()}`;
     }
   }
