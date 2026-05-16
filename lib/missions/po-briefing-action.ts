@@ -5,8 +5,12 @@ import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/db/index";
 import { approvals, businesses, memory, missions, sprints } from "@/db/schema";
+import { runServerAgentOnce } from "@/lib/cursor/server-agent";
+import { buildRepoContextForPrompt } from "@/lib/github/repo-context";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { requireSessionUserId } from "@/lib/roster/session";
+import { loadAgentSoulMarkdown } from "@/lib/missions/load-agent-soul";
+import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
 
 /** Plain-text-ish snippet when missions have no dedicated `goal` column. */
 function missionGoalSummary(prd: string, validationContract: string): string {
@@ -91,6 +95,79 @@ function buildSimulatedSprintBrief(params: {
   ].join("\n");
 }
 
+function buildPoAgentPrompt(params: {
+  agentSoulMarkdown: string;
+  businessName: string;
+  missionName: string;
+  missionGoalLine: string;
+  validationContract: string;
+  soulMarkdown: string;
+  repoContext: string | null;
+}): string {
+  const repoBlock = params.repoContext
+    ? params.repoContext
+    : "> No GitHub repository connected for this workspace. If codebase grounding is required, state that GitHub is not linked (Settings → Integrations). Do not invent files or directories.";
+
+  const ghConnected = !!params.repoContext;
+  const roleLines = ghConnected
+    ? [
+        "You are the **Product Owner** for this business (server-side agent).",
+        "You have **no** local filesystem; repository context below comes only from the injected GitHub snapshot.",
+        "Ground backlog and risks in that snapshot when relevant.",
+        "Do **not** tell the operator to connect GitHub when a snapshot is present.",
+      ]
+    : [
+        "You are the **Product Owner** for this business (server-side agent).",
+        "No GitHub snapshot is available — do **not** invent repository structure or file paths.",
+      ];
+
+  const chunks: string[] = [];
+
+  if (params.agentSoulMarkdown.trim()) {
+    chunks.push(params.agentSoulMarkdown.trim(), "", "---", "");
+  }
+
+  chunks.push(
+    "## Role context",
+    ...roleLines,
+    "",
+    "## Business",
+    `Name: **${params.businessName}**`,
+    "",
+    "## GitHub repository snapshot",
+    repoBlock,
+    "",
+    "## Mission",
+    `**Name:** ${params.missionName}`,
+    "",
+    "**Goal / PRD summary:**",
+    params.missionGoalLine,
+    "",
+    "**Validation contract (definition of done):**",
+    params.validationContract.trim() || "_Empty — call this out explicitly in open questions._",
+    "",
+    "## Business memory (soul)",
+    params.soulMarkdown.trim() || "_No business soul document yet._",
+    "",
+    "## Task",
+    "Produce a single **sprint brief** as **markdown** suitable for human approval.",
+    "Include clearly labeled sections:",
+    "- Sprint goal (one crisp sentence)",
+    "- User stories (5–8) in \"As a … I want … so that …\" form with 2–4 acceptance criteria each",
+    "- Risks and dependencies",
+    "- Open questions for the business owner",
+    "",
+    "Ground statements in the mission, validation contract, business soul, and repository snapshot when present.",
+    "Respond with **markdown only** (no JSON wrapper).",
+    "",
+    "User: Generate the sprint brief now.",
+    "",
+    "Assistant:",
+  );
+
+  return chunks.join("\n");
+}
+
 export async function runProductOwnerBriefing(
   businessId: string,
   missionId: string,
@@ -129,34 +206,53 @@ export async function runProductOwnerBriefing(
       mission.validationContract,
     );
 
-    const poPrompt = `
-Du er Product Owner for ${businessName}.
+    const agentSoulMarkdown = await loadAgentSoulMarkdown(businessId, "product_owner");
 
-Mission: ${mission.name}
-Mål: ${missionGoalLine}
-Validation contract (done-criteria):
-${mission.validationContract}
+    const apiKey = await resolveCursorApiKeyForBusiness(businessId).catch(() => null);
 
-Business soul:
-${soulMarkdown || "Ingen soul-dokument endnu."}
+    let poOutputMarkdown: string;
 
-Producér et struktureret sprint brief med:
-1. Sprint mål (1 sætning)
-2. User stories (5-8 stories: "Som [rolle] vil jeg [handling] så jeg [værdi]")
-3. Acceptance criteria per story
-4. Åbne spørgsmål til business owner
-5. Risici og afhængigheder
+    if (!apiKey) {
+      poOutputMarkdown = buildSimulatedSprintBrief({
+        missionName: mission.name,
+        missionGoalLine,
+        validationContract: mission.validationContract,
+        soulMarkdown,
+      });
+    } else {
+      const repoContext = await buildRepoContextForPrompt(businessId).catch(() => null);
+      const poPrompt = buildPoAgentPrompt({
+        agentSoulMarkdown,
+        businessName,
+        missionName: mission.name,
+        missionGoalLine,
+        validationContract: mission.validationContract,
+        soulMarkdown,
+        repoContext,
+      });
 
-Svar i markdown.
-`.trim();
-
-    // TODO: wire runCursorAgent when agent runtime is ready (pass poPrompt instead of simulated output below)
-    const poOutputMarkdown = buildSimulatedSprintBrief({
-      missionName: mission.name,
-      missionGoalLine,
-      validationContract: mission.validationContract,
-      soulMarkdown,
-    }).concat("\n\n", `_MVP-note: Prepared PO prompt (${poPrompt.length} characters). Replace with agent output later._`);
+      try {
+        const agentText = await runServerAgentOnce(poPrompt, apiKey);
+        if (!agentText.trim()) {
+          poOutputMarkdown = buildSimulatedSprintBrief({
+            missionName: mission.name,
+            missionGoalLine,
+            validationContract: mission.validationContract,
+            soulMarkdown,
+          }).concat("\n\n", "_Agent returned empty output; using simulated brief as fallback._");
+        } else {
+          poOutputMarkdown = agentText;
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        poOutputMarkdown = buildSimulatedSprintBrief({
+          missionName: mission.name,
+          missionGoalLine,
+          validationContract: mission.validationContract,
+          soulMarkdown,
+        }).concat("\n\n", `_Agent error (${msg}); using simulated brief as fallback._`);
+      }
+    }
 
     // Wrap existence check + sprint insert + approval insert in a single transaction
     // to prevent TOCTOU races (two concurrent calls both passing the check) and
