@@ -1,4 +1,5 @@
 import { ApprovalsBoardClient } from "@/components/approvals/approvals-board-client";
+import { backfillApprovedSprintBriefs } from "@/lib/approvals/actions";
 import { listApprovalsGroupedForBusiness } from "@/lib/approvals/queries";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
 
@@ -11,6 +12,11 @@ export default async function ApprovalsPage({
 }) {
   const sp = await searchParams;
   const businessId = await resolveBusinessIdParam(sp.businessId, "/dashboard/approvals");
+
+  // Fire-and-forget: process any approved PO sprint briefs that EM hasn't handled yet.
+  // Idempotent — safe to call on every page load.
+  void backfillApprovedSprintBriefs(businessId).catch(() => {});
+
   const grouped = await listApprovalsGroupedForBusiness(businessId);
 
   return (

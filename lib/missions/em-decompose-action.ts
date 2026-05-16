@@ -284,6 +284,15 @@ export async function runEngineeringManagerDecomposition(
       return { success: false, error: "Sprint not found for this approval" };
     }
 
+    // Idempotency guard — EM has already run for this sprint.
+    const existingTask = await db.query.tasks.findFirst({
+      where: eq(tasks.sprintId, sprintId),
+      columns: { id: true },
+    });
+    if (existingTask) {
+      return { success: true, taskIds: [] };
+    }
+
     const missionRow = await db.query.missions.findFirst({
       where: eq(missions.id, missionId),
     });

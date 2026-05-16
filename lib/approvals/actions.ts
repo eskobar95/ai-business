@@ -1,12 +1,13 @@
 "use server";
 
+import { eq } from "drizzle-orm";
+
 import { getDb } from "@/db/index";
 import { approvals } from "@/db/schema";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { runEngineeringManagerDecomposition } from "@/lib/missions/em-decompose-action";
 import { logAgentLifecycleStatus, logEvent } from "@/lib/orchestration/events";
 import { requireSessionUserId } from "@/lib/roster/session";
-import { eq } from "drizzle-orm";
 
 export async function createApproval(params: {
   businessId: string;
@@ -127,4 +128,30 @@ export async function rejectArtifact(approvalId: string, comment: string): Promi
   if (row.agentId && row.businessId) {
     await logAgentLifecycleStatus(row.businessId, row.agentId, "idle", { approvalId });
   }
+}
+
+/**
+ * Finds all approved PO sprint brief approvals for a business that have not yet
+ * had EM decomposition run, and triggers it for each. Safe to call repeatedly —
+ * `runEngineeringManagerDecomposition` is idempotent (skips if tasks already exist).
+ */
+export async function backfillApprovedSprintBriefs(businessId: string): Promise<void> {
+  const userId = await requireSessionUserId();
+  await assertUserBusinessAccess(userId, businessId);
+
+  const db = getDb();
+  const rows = await db.query.approvals.findMany({
+    where: eq(approvals.businessId, businessId),
+    columns: { id: true, approvalStatus: true, artifactRef: true },
+  });
+
+  const pending = rows.filter((r) => {
+    if (r.approvalStatus !== "approved") return false;
+    const ref = r.artifactRef as Record<string, unknown>;
+    return ref?.artifactType === "po_sprint_brief";
+  });
+
+  await Promise.allSettled(
+    pending.map((r) => runEngineeringManagerDecomposition(businessId, r.id)),
+  );
 }
