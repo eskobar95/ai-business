@@ -4,6 +4,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { getDb } from "@/db/index";
 import { agents, businesses, chatMessages, chatSessions, memory } from "@/db/schema";
+// businesses is used in buildBusinessContext
 import { auth } from "@/lib/auth/server";
 import {
   applyConductorInstructionPlaceholders,
@@ -31,14 +32,11 @@ function htmlToPlainText(html: string): string {
  * Builds a business context prefix for non-Conductor agents.
  * Returns { prefix, localPath } so the route can pass localPath to local.cwd.
  */
-async function buildBusinessContext(businessId: string): Promise<{
-  prefix: string;
-  localPath: string | null;
-}> {
+async function buildBusinessContext(businessId: string): Promise<{ prefix: string }> {
   const db = getDb();
 
   const [biz] = await db
-    .select({ name: businesses.name, localPath: businesses.localPath })
+    .select({ name: businesses.name })
     .from(businesses)
     .where(eq(businesses.id, businessId))
     .limit(1);
@@ -51,20 +49,21 @@ async function buildBusinessContext(businessId: string): Promise<{
     .limit(1);
 
   const businessName = biz?.name?.trim() || "the business";
-  const localPath = biz?.localPath ?? null;
   const soulText = soulRow[0]?.content ? htmlToPlainText(soulRow[0].content) : "";
 
   const lines: string[] = [
-    `## Business context`,
+    `## Your role`,
     `You are working for **${businessName}**.`,
-    `IMPORTANT: Only use information provided in this prompt. Do not reference any other local codebase or workspace unless explicitly shown below.`,
+    `You are a server-side AI agent. You have NO access to any local filesystem.`,
+    `Your ONLY source of codebase knowledge is the GitHub repository data injected below.`,
+    `Do NOT reference any other repository, codebase, or workspace. If information is not in this prompt, say so honestly.`,
   ];
 
   if (soulText) {
     lines.push(``, `### Business memory`, soulText);
   }
 
-  return { prefix: lines.join("\n"), localPath };
+  return { prefix: lines.join("\n") };
 }
 
 export const runtime = "nodejs";
@@ -137,21 +136,17 @@ export async function POST(
     const snap = await loadConductorOrchestrationSnapshot(businessId);
     soulContent = applyConductorInstructionPlaceholders(soulContent, snap);
   } else {
-    // All other agents: prefix with business context + repo snapshot (if GitHub is connected)
+    // All other agents: prefix with business context + live GitHub repo snapshot
     const [bizCtx, repoContext] = await Promise.all([
       buildBusinessContext(businessId),
       buildRepoContextForPrompt(businessId),
     ]);
     const contextParts = [bizCtx.prefix];
     if (repoContext) contextParts.push(repoContext);
+    else contextParts.push(`\n> No GitHub repository connected. Connect one in Settings → Integrations.`);
     if (soulContent) contextParts.push("---", soulContent);
     soulContent = contextParts.join("\n\n");
-    // Store localPath so we can pass it to local.cwd below
-    agentLocalPath = bizCtx.localPath;
   }
-
-  // agentLocalPath is set by the non-Conductor branch above; null means no local context
-  let agentLocalPath: string | null = null;
 
   const apiKey = await resolveCursorApiKeyForBusiness(businessId);
   if (!apiKey) {
@@ -194,12 +189,11 @@ export async function POST(
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
 
-      // Use the business's configured local path (e.g. /Users/.../mercflow) as
-      // the agent's workspace. Falls back to no local context if not configured.
+      // No local.cwd — codebase context is injected via the prompt from GitHub API.
+      // This makes the platform fully server-deployable without local checkouts.
       const agentOptions = {
         apiKey,
         model: { id: "composer-2" as const },
-        ...(agentLocalPath ? { local: { cwd: agentLocalPath } } : {}),
       };
 
       let cursorAgent: Awaited<ReturnType<typeof Agent.create>> | null = null;
