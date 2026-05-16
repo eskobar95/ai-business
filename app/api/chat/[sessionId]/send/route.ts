@@ -12,6 +12,7 @@ import {
 } from "@/lib/conductor/conductor-context";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
 import { buildRepoContextForPrompt } from "@/lib/github/repo-context";
+import { CursorChatStreamBridge } from "@/lib/chat/chat-sse";
 import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
 
 /** Strip HTML tags from Tiptap-stored memory content for plain-text injection. */
@@ -54,9 +55,10 @@ async function buildBusinessContext(businessId: string): Promise<{ prefix: strin
   const lines: string[] = [
     `## Your role`,
     `You are working for **${businessName}**.`,
-    `You are a server-side AI agent. You have NO access to any local filesystem.`,
-    `Your ONLY source of codebase knowledge is the GitHub repository data injected below.`,
-    `Do NOT reference any other repository, codebase, or workspace. If information is not in this prompt, say so honestly.`,
+    `You are a server-side AI agent. You have NO access to any local filesystem and cannot call GitHub yourself.`,
+    `When a "## GitHub Repository:" section appears below, that snapshot is already loaded — use it; do not tell the user to connect GitHub or grant repo access again.`,
+    `Your ONLY source of codebase knowledge is that injected section. If it is missing, say GitHub is not connected for this workspace.`,
+    `Do NOT reference any other repository than the one named in the snapshot. If information is not in the prompt, say so honestly.`,
   ];
 
   if (soulText) {
@@ -197,12 +199,20 @@ export async function POST(
       };
 
       let cursorAgent: Awaited<ReturnType<typeof Agent.create>> | null = null;
+      const bridge = new CursorChatStreamBridge((event, data) => send(event, data));
+
       try {
+        bridge.stage("Context ready");
+        bridge.stage(
+          session.cursorAgentId ? "Resuming agent session" : "Starting agent session",
+        );
+
         cursorAgent = session.cursorAgentId
           ? await Agent.resume(session.cursorAgentId, agentOptions)
           : await Agent.create(agentOptions);
 
-        send("stage", { label: "Thinking..." });
+        bridge.stage("Connected to agent");
+        bridge.stage("Processing your message");
 
         const run = await cursorAgent.send(fullPrompt);
 
@@ -215,19 +225,20 @@ export async function POST(
 
         if (run.supports("stream")) {
           for await (const event of run.stream()) {
-            if (event.type === "assistant") {
-              for (const block of event.message.content) {
-                if (block.type === "text") {
-                  const delta = block.text;
-                  assistantContent += delta;
-                  send("text_delta", { delta });
-                }
-              }
-            }
+            assistantContent += bridge.handleMessage(event);
           }
+        } else {
+          bridge.stage("Waiting for response");
         }
 
+        bridge.endThinking();
+
         const result = await run.wait();
+        if (!assistantContent.trim() && result.result?.trim()) {
+          bridge.stage("Writing response");
+          send("text_delta", { delta: result.result });
+          assistantContent = result.result;
+        }
         if (result.status === "finished") {
           runCompleted = true;
           send("done", {});

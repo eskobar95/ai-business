@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatBubble } from "@/components/chat/chat-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
+import { CHAT_CONFIGS } from "@/lib/chat/chat-config";
 import { useChatStream, type ChatMessage } from "@/hooks/use-chat-stream";
 import { ensureWidgetChatSession } from "@/lib/chat/actions";
 import { cn } from "@/lib/utils";
@@ -196,6 +197,7 @@ export function ConductorChatWidgetClient({
                   key={message.id}
                   message={message}
                   agentLabel="Conductor"
+                  features={CHAT_CONFIGS.widget}
                   isFirstInGroup={i === 0}
                   isLastInGroup={i === group.length - 1}
                   onQuestionAnswer={(qid, answer) => void handleSend(`[answer:${qid}] ${answer}`)}

@@ -9,6 +9,7 @@ import "./globals.css";
 import { AppShell } from "./components/app-shell";
 import { AppProgressBar } from "./components/app-progress";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth/client";
 
 export const metadata: Metadata = {
@@ -32,11 +33,13 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <NeonAuthUIProvider authClient={authClient}>
-            <AppProgressBar />
-            <AppShell>{children}</AppShell>
-            <Toaster />
-          </NeonAuthUIProvider>
+          <TooltipProvider>
+            <NeonAuthUIProvider authClient={authClient}>
+              <AppProgressBar />
+              <AppShell>{children}</AppShell>
+              <Toaster />
+            </NeonAuthUIProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

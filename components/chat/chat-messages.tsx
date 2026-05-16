@@ -1,8 +1,14 @@
 "use client";
 
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
 import { MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 
+import type { ChatFeatures } from "@/lib/chat/chat-config";
 import type { ChatMessage } from "@/hooks/use-chat-stream";
 import { cn } from "@/lib/utils";
 
@@ -35,41 +41,24 @@ export function ChatMessages({
   messages,
   isLoading,
   agentLabel = "Assistant",
+  features,
   onViewArtifactMessage,
   onQuestionAnswer,
+  onToolApproval,
   isBootstrapping,
+  className,
 }: {
   messages: ChatMessage[];
   isLoading: boolean;
   agentLabel?: string;
+  features?: ChatFeatures;
   onViewArtifactMessage?: (messageId: string) => void;
   onQuestionAnswer?: (id: string, answer: string) => void;
+  onToolApproval?: (toolId: string, approvalId: string, approved: boolean) => void;
   isBootstrapping?: boolean;
+  className?: string;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const pinnedToBottomRef = useRef(true);
-
   const grouped = useMemo(() => chunkByRole(messages), [messages]);
-
-  const scrollToBottom = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const slack = 64;
-    const atBottom =
-      el.scrollHeight - el.clientHeight <= el.scrollTop + slack + 2;
-    pinnedToBottomRef.current = atBottom;
-  }, []);
-
-  useEffect(() => {
-    if (!pinnedToBottomRef.current) return;
-    scrollToBottom();
-  }, [messages, isLoading, scrollToBottom]);
 
   const showSkeleton =
     Boolean(isBootstrapping) || (Boolean(isLoading) && messages.length === 0);
@@ -77,65 +66,64 @@ export function ChatMessages({
   const showEmpty = messages.length === 0 && !showSkeleton && !isLoading;
 
   return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6"
-      role="log"
-      aria-label="Conversation"
-    >
-      {showSkeleton ? (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-          <SkeletonBubble align="right" />
-          <SkeletonBubble align="left" />
-        </div>
-      ) : null}
-
-      {showEmpty ? (
-        <div className="mx-auto mt-28 flex max-w-md flex-col items-center text-center">
-          <div className="border-border/60 bg-muted/15 text-muted-foreground mb-4 flex size-14 items-center justify-center rounded-full border">
-            <MessageSquare className="size-7" aria-hidden />
+    <Conversation className={cn("min-h-0 flex-1", className)}>
+      <ConversationContent className="mx-auto w-full max-w-3xl gap-1 px-4 py-4 sm:px-6 sm:py-6">
+        {showSkeleton ? (
+          <div className="flex flex-col gap-4">
+            <SkeletonBubble align="right" />
+            <SkeletonBubble align="left" />
           </div>
-          <p className="text-muted-foreground text-sm font-medium">
-            Start the conversation
-          </p>
-          <p className="text-muted-foreground/80 mt-2 text-xs leading-relaxed">
-            Ask anything about your business—this thread keeps decisions, artifacts, and
-            follow-ups tidy.
-          </p>
-        </div>
-      ) : null}
+        ) : null}
 
-      {!showSkeleton && !showEmpty ? (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-10">
-          {grouped.map((group) => (
-            <div key={`${group[0]?.role}:${group[0]?.id ?? "grp"}`} className="flex flex-col gap-1">
-              {group.map((m, idx) => (
-                <ChatBubble
-                  key={m.id}
-                  message={m}
-                  agentLabel={agentLabel}
-                  isLastInGroup={idx === group.length - 1}
-                  onViewArtifact={
-                    m.role === "assistant" &&
-                    Boolean(m.artifact) &&
-                    onViewArtifactMessage
-                      ? () => onViewArtifactMessage(m.id)
-                      : undefined
-                  }
-                  onQuestionAnswer={
-                    m.role === "assistant" &&
-                    Boolean(m.questions?.length) &&
-                    onQuestionAnswer
-                      ? onQuestionAnswer
-                      : undefined
-                  }
-                />
-              ))}
+        {showEmpty ? (
+          <div className="mx-auto mt-28 flex max-w-md flex-col items-center text-center">
+            <div className="mb-4 flex size-14 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-muted-foreground">
+              <MessageSquare className="size-7" aria-hidden />
             </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+            <p className="text-sm font-medium text-muted-foreground">Start the conversation</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground/80">
+              Ask anything about your business—this thread keeps decisions, artifacts, and
+              follow-ups tidy.
+            </p>
+          </div>
+        ) : null}
+
+        {!showSkeleton && !showEmpty
+          ? grouped.map((group) => (
+              <div
+                key={`${group[0]?.role}:${group[0]?.id ?? "grp"}`}
+                className="flex flex-col gap-0.5 pb-2"
+              >
+                {group.map((m, idx) => (
+                  <ChatBubble
+                    key={m.id}
+                    message={m}
+                    agentLabel={agentLabel}
+                    features={features}
+                    isFirstInGroup={idx === 0}
+                    isLastInGroup={idx === group.length - 1}
+                    onViewArtifact={
+                      m.role === "assistant" &&
+                      Boolean(m.artifact) &&
+                      onViewArtifactMessage
+                        ? () => onViewArtifactMessage(m.id)
+                        : undefined
+                    }
+                    onQuestionAnswer={
+                      m.role === "assistant" &&
+                      Boolean(m.questions?.length) &&
+                      onQuestionAnswer
+                        ? onQuestionAnswer
+                        : undefined
+                    }
+                    onToolApproval={onToolApproval}
+                  />
+                ))}
+              </div>
+            ))
+          : null}
+      </ConversationContent>
+      <ConversationScrollButton />
+    </Conversation>
   );
 }

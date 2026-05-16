@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { ArrowUp, Paperclip, X, FileText, File } from "lucide-react";
 
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import type { GrillQuickReply } from "@/lib/grill-me/extract-quick-replies";
 import { cn } from "@/lib/utils";
 
@@ -157,31 +158,28 @@ export function InputForm({
       >
         {/* Quick reply chips */}
         {quickReplies.length > 0 && (
-          <div
-            className="flex flex-wrap gap-1.5 px-3 pt-3 pb-0"
+          <Suggestions
+            className="gap-1.5 px-3 pt-3 pb-0"
             role="group"
             aria-label="Quick replies"
           >
             {quickReplies.map((r) => (
-              <button
+              <Suggestion
                 key={r.id}
-                type="button"
+                suggestion={r.label}
                 disabled={disabled}
+                className="max-w-[260px] truncate border-white/[0.1] bg-white/[0.04] text-[11px] text-foreground/70 hover:border-primary/40 hover:bg-primary/[0.07]"
                 onClick={() => pickReply(r)}
-                className="rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-[11px] text-foreground/70 transition-all hover:border-primary/40 hover:bg-primary/[0.07] hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer truncate max-w-[260px]"
-              >
-                {r.label}
-              </button>
+              />
             ))}
-            <button
-              type="button"
+            <Suggestion
+              suggestion="Other — write below"
               disabled={disabled}
+              variant="ghost"
+              className="border border-dashed border-white/[0.08] text-muted-foreground/40"
               onClick={() => textareaRef.current?.focus()}
-              className="rounded-full border border-dashed border-white/[0.08] px-3 py-1 text-[11px] text-muted-foreground/40 transition-all hover:border-white/[0.18] hover:text-muted-foreground/70 disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
-            >
-              Other — write below
-            </button>
-          </div>
+            />
+          </Suggestions>
         )}
 
         {/* Attachment thumbnails */}
