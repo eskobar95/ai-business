@@ -14,7 +14,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 2. PO to propose **missions** with validation contracts.
 3. Missions → **PRD** (mission fields) → **sprint brief** (PO) → **human approval** → **EM decomposition** → **tasks** → **runners** (local Cursor SDK with repo checkout).
 
-**Core gap:** PO briefing is still **simulated**. PO chat now gets **live file/directory prefetch** when the user names allowlisted repo paths (plus static snapshot); still **not** a full IDE-style arbitrary browse without naming paths.
+**Core gap:** PO **chat** still requires **named repo paths** for live prefetch (plus static snapshot); not full IDE-style arbitrary browse. **PO briefing** and **EM decomposition** now call **`runServerAgentOnce`** (no `local.cwd`) when a workspace Cursor API key resolves; otherwise they fall back to the previous simulated markdown / tasks.
 
 ---
 
@@ -27,11 +27,12 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | **Branch** | `main` |
 | **Phase B merged** | PR [#43](https://github.com/eskobar95/ai-business/pull/43) → `1678fbb` on `origin/main` (`916552f`: `buildRepoSummaryForMission`, wizard repo panel, `RepoContextBadge`) |
 | **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` (PO prefetch + E2E FAB fix) |
-| **`origin/main` now** | Phase 0–B: chat shell, PO prefetch, **mission repo summary** on new wizard + mission detail |
+| **`origin/main` now** | Phase 0–B merged on **`main`**; **Phase C** merges via PR from **`feat/phase-c-real-po-em-agents`** (verify latest after merge). |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
+| **Phase C** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) — **`feat/phase-c-real-po-em-agents`** → `main`: \`runServerAgentOnce\`, \`load-agent-soul.ts\`, \`em-parse.ts\`, approval sprint brief UI. Verify latest commit on the branch before merge. |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Work from **`main`**. Start **Phase C** (real PO briefing + EM with repo) — see § Phase C.
+**Action for new session:** Merge **Phase C** PR from **`feat/phase-c-real-po-em-agents`** when CI passes; optional **Phase D** (chat → mission bridge) afterward — see § Phase D.
 
 Recent commits (`main`, newest first — verify with `git log`):
 - `1678fbb` — merge PR #43 (Phase B)
@@ -55,13 +56,13 @@ Missions wizard (/dashboard/missions/new) → createMission
 Mission detail (/dashboard/missions/[missionId])
      Header **RepoContextBadge** + tabs → "Kickstart Product Owner"
      runProductOwnerBriefing → sprint (planning) + approval (po_sprint_brief)
-     SIMULATED markdown today (TODO: runCursorAgent)
+     Cursor **`runServerAgentOnce`** + repo snapshot + **product_owner** soul from DB (fallback: simulated if no API key / agent failure)
      ↓
 Human → Approvals (/dashboard/approvals) → approve
      ↓
-Approval detail → "Engineering Manager decomposition" (manual button)
+Approval detail → rendered **Sprint brief** (markdown) + "Engineering Manager decomposition" (manual button)
      runEngineeringManagerDecomposition → tasks in backlog + sprint active
-     SIMULATED task list today
+     Agent JSON task list (**engineering_manager** soul + repo snapshot; fallback: simulated tasks if no key / parse error / agent failure)
      ↓
 Tasks promoted / gates / webhook_trigger → runner/dispatch.ts
      Agent.create({ local: { cwd } }) — FULL repo access on runner machine
@@ -77,9 +78,9 @@ Tasks promoted / gates / webhook_trigger → runner/dispatch.ts
 | PO live path prefetch (`product_owner` + connected repo) | Works | `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, `POST /api/chat/.../send` — parses paths (`lib/`, `src/`, …), GitHub Contents API, injects `## Requested files`; SSE `repo_tool_*` → tool UI |
 | PO understands mercflow deeply | **Partial** | Grounding improves when user names concrete paths; generic questions still depend on model + snapshot |
 | Mission create + repo-aware UI | Works | `lib/missions/actions.ts`, `lib/github/repo-summary.ts`, `app/dashboard/missions/new/*`, `app/dashboard/missions/[missionId]/page.tsx`, `components/missions/repo-context-badge.tsx` |
-| PO sprint brief | **Simulated** | `lib/missions/po-briefing-action.ts` line ~153 TODO |
-| Approval gate | Works | `lib/approvals/actions.ts`, `createApproval` from PO briefing |
-| EM decompose after approve | Works (simulated output) | `lib/missions/em-decompose-action.ts`, `app/dashboard/approvals/[approvalId]/em-decompose-button.tsx` |
+| PO sprint brief | **Live agent when API key** (else simulated) | `lib/missions/po-briefing-action.ts`, `lib/cursor/server-agent.ts`, `lib/missions/load-agent-soul.ts` |
+| Approval gate + sprint brief UX | Works | `lib/approvals/actions.ts`; approval detail shows **`SprintBriefMarkdown`** when `artifactRef.sprintId` + `sprints.goal` |
+| EM decompose after approve | **Live agent when API key** (else simulated / parse fallback) | `lib/missions/em-decompose-action.ts`, `lib/missions/em-parse.ts`, `app/dashboard/approvals/[approvalId]/em-decompose-button.tsx` |
 | Runner execution | Works (separate process) | `runner/dispatch.ts`, `lib/tasks/auto-trigger.ts`, `webhook_trigger` events |
 | Chat → mission proposal blocks | **Not built** | Discussed in prior session, not implemented |
 

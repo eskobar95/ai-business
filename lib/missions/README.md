@@ -13,5 +13,7 @@ Sprint CRUD lives in `lib/sprints/actions.ts` (`createSprint`, etc.).
 
 ## Product Owner / Engineering flows
 
-- `po-briefing-action.ts` — `runProductOwnerBriefing`: creates a sprint (`planning`) + approval artifact (`artifactType: po_sprint_brief`).
-- `em-decompose-action.ts` — `runEngineeringManagerDecomposition`: after the PO sprint brief approval, creates backlog tasks from simulated EM output and moves the sprint to `active` (single DB transaction).
+- `po-briefing-action.ts` — `runProductOwnerBriefing`: Cursor Cloud agent (no `local.cwd`) + `buildRepoContextForPrompt`; falls back to simulated markdown if no API key or agent failure. Uses roster **product_owner** soul from `load-agent-soul.ts`.
+- `em-decompose-action.ts` — `runEngineeringManagerDecomposition`: same pattern with JSON-in-fence parsing via `em-parse.ts`; falls back to simulated tasks if no key, parse failure, or agent error. Uses **engineering_manager** soul from `load-agent-soul.ts`.
+- `load-agent-soul.ts` — loads `agent_documents.slug === "soul"` for a roster agent (Enterprise template).
+- `em-parse.ts` — `parseEmTasksFromOutput` for EM JSON task arrays.

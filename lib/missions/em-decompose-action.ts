@@ -4,9 +4,14 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/db/index";
-import { agents, approvals, memory, missions, sprints, tasks } from "@/db/schema";
+import { agents, approvals, businesses, memory, missions, sprints, tasks } from "@/db/schema";
+import { runServerAgentOnce } from "@/lib/cursor/server-agent";
+import { buildRepoContextForPrompt } from "@/lib/github/repo-context";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
+import { parseEmTasksFromOutput } from "@/lib/missions/em-parse";
+import { loadAgentSoulMarkdown } from "@/lib/missions/load-agent-soul";
 import { requireSessionUserId } from "@/lib/roster/session";
+import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
 
 type PoSprintBriefArtifactRef = {
   sprintId?: unknown;
@@ -177,6 +182,73 @@ function buildSimulatedEmTasks(params: {
   ];
 }
 
+function buildEmAgentPrompt(params: {
+  agentSoulMarkdown: string;
+  businessName: string;
+  missionName: string;
+  validationContract: string;
+  sprintBriefMarkdown: string;
+  soulMarkdown: string;
+  engineeringManagerLine: string;
+  rosterLines: string[];
+  repoContext: string | null;
+}): string {
+  const repoBlock = params.repoContext
+    ? params.repoContext
+    : "> No GitHub repository snapshot — plan only from sprint brief, validation contract, and soul.";
+
+  const chunks: string[] = [];
+
+  if (params.agentSoulMarkdown.trim()) {
+    chunks.push(params.agentSoulMarkdown.trim(), "", "---", "");
+  }
+
+  chunks.push(
+    "## Role context",
+    "You are the **Engineering Manager** for this business (server-side agent).",
+    "You coordinate delivery and task breakdown; you do **not** write production code in this step.",
+    "You have **no** local filesystem — use the repository snapshot when it is provided.",
+    "",
+    "## Business",
+    `**${params.businessName}**`,
+    "",
+    "## GitHub repository snapshot",
+    repoBlock,
+    "",
+    "## Mission",
+    `**Name:** ${params.missionName}`,
+    "",
+    "**Validation contract:**",
+    params.validationContract.trim() || "(empty)",
+    "",
+    "## Approved sprint brief (Product Owner)",
+    params.sprintBriefMarkdown.trim() || "(empty)",
+    "",
+    "## Business memory (soul)",
+    params.soulMarkdown.trim() || "(empty)",
+    "",
+    "## Engineering roster context",
+    params.engineeringManagerLine,
+    "",
+    "**Assignable roles (prefer these slugs in output):**",
+    ...params.rosterLines,
+    "",
+    "## Task",
+    "Decompose the sprint brief into **engineering tasks**.",
+    "Return **exactly one** markdown fenced code block labelled `json` containing **only** valid JSON.",
+    "The JSON root must be a **non-empty array** of objects with keys:",
+    "`title` (string), `description` (string), `agentSlug` (string — must match a slug listed above when possible),",
+    "`priority` (`high` | `medium` | `low`), optional `estimatedHours` (positive number).",
+    "Do not wrap the JSON in commentary outside the fence.",
+    "",
+    "User: Produce the JSON task list now.",
+    "",
+    "Assistant:",
+  );
+
+  return chunks.join("\n");
+}
+
 export async function runEngineeringManagerDecomposition(
   businessId: string,
   approvalId: string,
@@ -219,6 +291,12 @@ export async function runEngineeringManagerDecomposition(
       return { success: false, error: "Mission not found" };
     }
 
+    const businessRow = await db.query.businesses.findFirst({
+      where: eq(businesses.id, businessId),
+      columns: { name: true },
+    });
+    const businessName = businessRow?.name?.trim() || businessId;
+
     const soulRows = await db
       .select({ content: memory.content })
       .from(memory)
@@ -255,14 +333,69 @@ export async function runEngineeringManagerDecomposition(
       ...engineeringContextLines,
     ].join("\n");
 
-    // TODO: wire runCursorAgent when agent runtime is ready
+    const agentSoulMarkdown = await loadAgentSoulMarkdown(businessId, "engineering_manager");
 
-    const simulatedTasks = buildSimulatedEmTasks({
-      missionName: missionRow.name,
-      sprintGoal: sprintRow.goal ?? "",
-      validationContract: missionRow.validationContract,
-      preparedPromptContextChars: simulatedPromptContext.length,
-    });
+    const engineeringManagerLine = engineeringManager
+      ? `- Matched EM: ${engineeringManager.slug ?? "(no slug)"} — ${engineeringManager.role}`
+      : "- (No Engineering Manager row matched; still emit tasks using canonical slugs.)";
+
+    const apiKey = await resolveCursorApiKeyForBusiness(businessId).catch(() => null);
+
+    let plannedTasks: SimulatedEmTask[];
+
+    if (!apiKey) {
+      plannedTasks = buildSimulatedEmTasks({
+        missionName: missionRow.name,
+        sprintGoal: sprintRow.goal ?? "",
+        validationContract: missionRow.validationContract,
+        preparedPromptContextChars: simulatedPromptContext.length,
+      });
+    } else {
+      const repoContext = await buildRepoContextForPrompt(businessId).catch(() => null);
+      const emPrompt = buildEmAgentPrompt({
+        agentSoulMarkdown,
+        businessName,
+        missionName: missionRow.name,
+        validationContract: missionRow.validationContract,
+        sprintBriefMarkdown: sprintRow.goal ?? "",
+        soulMarkdown,
+        engineeringManagerLine,
+        rosterLines: engineeringContextLines,
+        repoContext,
+      });
+
+      try {
+        const raw = await runServerAgentOnce(emPrompt, apiKey);
+        const parsed = parseEmTasksFromOutput(raw);
+        plannedTasks =
+          parsed?.map((t) => ({
+            title: t.title,
+            description: [
+              t.description,
+              "",
+              `_Estimated effort: ${t.estimatedHours}h (agent plan)._`,
+            ]
+              .join("\n")
+              .trim(),
+            agentSlug: t.agentSlug,
+            priority: t.priority,
+            estimatedHours: t.estimatedHours,
+          })) ??
+          buildSimulatedEmTasks({
+            missionName: missionRow.name,
+            sprintGoal: sprintRow.goal ?? "",
+            validationContract: missionRow.validationContract,
+            preparedPromptContextChars: emPrompt.length,
+          });
+      } catch {
+        plannedTasks = buildSimulatedEmTasks({
+          missionName: missionRow.name,
+          sprintGoal: sprintRow.goal ?? "",
+          validationContract: missionRow.validationContract,
+          preparedPromptContextChars: emPrompt.length,
+        });
+      }
+    }
 
     const taskIds = await db.transaction(async (tx) => {
       const sprintLocked = await tx.query.sprints.findFirst({
@@ -277,7 +410,7 @@ export async function runEngineeringManagerDecomposition(
 
       const insertedIds: string[] = [];
 
-      for (const item of simulatedTasks) {
+      for (const item of plannedTasks) {
         const agentId =
           roster.find((a) => agentMatchesSlug(a, item.agentSlug))?.id ?? null;
 
