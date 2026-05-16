@@ -24,18 +24,19 @@ The team has framed the platform and connected GitHub, but does not know how to 
 
 | State | What |
 |-------|------|
-| **Branch** | `feat/chat-shell-and-ai-elements` (pushed to `origin`) |
-| **Phase 0 baseline** | `0695a8d` — universal chat shell, AI Elements, `lib/chat/chat-sse.ts`, SSE tool/stage handling, `resolveRepoUrl` fix |
-| **Committed on `origin/main`** | GitHub repo snapshot injection only — **no** AI Elements chat until this branch merges |
-| **Local UNCOMMITTED** | None expected after Phase 0; run `git status` to confirm |
+| **Branch** | `main` |
+| **Phase 0 merged** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) → merge commit `a54f201` on `origin/main` |
+| **Phase 0 feature commits** | `0695a8d` (chat shell), `bc0a780` (handoff doc) |
+| **On `origin/main` now** | GitHub repo snapshot + universal chat shell, AI Elements, `lib/chat/chat-sse.ts`, SSE tool/stage handling |
+| **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Check out `feat/chat-shell-and-ai-elements` (or merge to `main` first). Start **Phase A** (PO repo read tools) from this baseline — do not assume `origin/main` has AI Elements chat.
+**Action for new session:** Work from `main`. Start **Phase A** (PO repo read tools) — see § Phase A.
 
-Recent commits (chat branch, newest first):
-- `0695a8d` — feat: universal chat shell, AI Elements renderer, SSE bridge (Phase 0)
-- `3693d54` — comprehensive repo snapshot (tree, README, key files, PRs, issues, commits) — on `main`
-- `01cdd08` — business localPath / grounding — on `main`
-- `4dfc9c6` — initial GitHub repo context in prompts — on `main`
+Recent commits (`main`, newest first):
+- `a54f201` — merge PR #41: Phase 0 chat shell + AI Elements + SSE bridge
+- `0695a8d` — feat: universal chat shell, AI Elements renderer, SSE bridge
+- `3693d54` — comprehensive repo snapshot (tree, README, key files, PRs, issues, commits)
+- `01cdd08` — business localPath / grounding
 
 ### 2.2 End-to-end flow (as implemented today)
 
