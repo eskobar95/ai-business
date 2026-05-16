@@ -25,7 +25,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | State | What |
 |-------|------|
 | **Branch** | `feat/phase-a-po-repo-tools` — open PR → `main` for Phase A |
-| **Phase A** | PO chat **prefetch**: `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, SSE `repo_tool_start` / `repo_tool_result`, inject `## Requested files` (Product Owner agent only, `slug === product_owner`, GitHub connected). Commit SHA: see PR / `git log`. |
+| **Phase A** | PO chat **prefetch** (`6521d3c`): `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, SSE `repo_tool_start` / `repo_tool_result`, inject `## Requested files` (Product Owner only, `slug === product_owner`, GitHub connected). |
 | **Phase 0 on `main`** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — chat shell + SSE merge `a54f201`; follow-up doc commit `13454d6` |
 | **`origin/main` baseline** | Repo snapshot + universal chat shell + AI Elements |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
@@ -33,7 +33,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 **Action for new session:** Merge Phase A PR, then start **Phase B** (mission wizard repo panel) — see § Phase B.
 
 Recent commits (verify with `git log`):
-- _(Phase A)_ — feat: PO chat repo prefetch (GitHub Contents API)
+- `6521d3c` — feat: PO chat repo prefetch (GitHub Contents API)
 - `13454d6` — docs: Phase 0 merged note
 - `a54f201` — merge PR #41 (Phase 0)
 
