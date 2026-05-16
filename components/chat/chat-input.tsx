@@ -119,66 +119,81 @@ export function ChatInput({
     );
   }
 
-  /* ── Full layout: paperclip + textarea + send ── */
+  /* ── Full layout: unified container with embedded actions ── */
   return (
-    <div className="mt-3 rounded-2xl border border-border/60 bg-background/35 p-3 shadow-[0_-20px_50px_-40px_rgba(168,235,18,0.65)] backdrop-blur-md supports-[backdrop-filter]:bg-background/25">
-      <div className="flex items-end gap-2">
-        <button
-          type="button"
-          aria-label="Attachments (soon)"
-          title="Attachments are coming soon"
-          disabled
-          className="inline-flex size-11 shrink-0 cursor-not-allowed items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-muted-foreground opacity-55 transition-colors hover:bg-muted/35"
-        >
-          <Paperclip className="size-4" />
-        </button>
+    <div
+      className={cn(
+        "relative rounded-2xl border transition-all duration-150",
+        "bg-white/[0.03]",
+        focused
+          ? "border-primary/35 shadow-[0_0_0_3px_rgba(168,235,18,0.07)]"
+          : "border-white/[0.08]",
+        disabled && "opacity-50",
+      )}
+    >
+      {/* Textarea */}
+      <textarea
+        ref={taRef}
+        value={value}
+        disabled={disabled}
+        maxLength={maxLen}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        rows={1}
+        placeholder="Message…"
+        className={cn(
+          "w-full resize-none bg-transparent text-[13px] leading-5 text-foreground outline-none",
+          "placeholder:text-muted-foreground/35",
+          "min-h-[48px] px-4 pb-10 pt-3.5",
+          disabled && "cursor-not-allowed",
+        )}
+      />
 
-        <div className="min-w-0 flex-1 space-y-1">
-          <textarea
-            ref={taRef}
-            value={value}
-            disabled={disabled}
-            maxLength={maxLen}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={1}
-            placeholder="Message…"
-            className={cn(
-              "w-full resize-none rounded-xl border px-4 py-3 text-sm leading-5 outline-none transition-[border-color,box-shadow]",
-              "border-border/70 bg-muted/25 text-foreground placeholder:text-muted-foreground",
-              "min-h-[44px]",
-              disabled && "cursor-not-allowed opacity-55",
-              "focus-visible:border-primary/55 focus-visible:ring-2 focus-visible:ring-ring",
-            )}
-          />
-          <div className={cn("flex items-center justify-end px-1", !showCounter && "opacity-0")}>
+      {/* Bottom toolbar */}
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 pb-2.5">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled
+            title="Attachments coming soon"
+            aria-label="Attachments"
+            className="flex size-7 cursor-not-allowed items-center justify-center rounded-lg text-muted-foreground/25 transition-colors hover:bg-white/[0.04] hover:text-muted-foreground/40"
+          >
+            <Paperclip className="size-3.5" />
+          </button>
+          <span className="text-[10px] text-muted-foreground/25 select-none">
+            Shift+Enter for new line
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {showCounter && (
             <span className={cn(
-              "text-[11px] tabular-nums",
-              value.length >= maxLen ? "text-destructive" : "text-muted-foreground",
+              "text-[10px] tabular-nums",
+              value.length >= maxLen ? "text-destructive" : "text-muted-foreground/40",
             )}>
               {value.length}/{maxLen}
             </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={sendNow}
-          disabled={disabled || !trimmed}
-          aria-label="Send message"
-          className={cn(
-            "inline-flex size-11 shrink-0 items-center justify-center rounded-xl transition-all",
-            "bg-primary text-primary-foreground hover:bg-primary/92",
-            "shadow-[0_10px_30px_-22px_rgba(168,235,18,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            "disabled:pointer-events-none disabled:opacity-35",
           )}
-        >
-          <ArrowUp className="size-4" />
-        </button>
+          <button
+            type="button"
+            onClick={sendNow}
+            disabled={disabled || !trimmed}
+            aria-label="Send message"
+            className={cn(
+              "flex size-8 items-center justify-center rounded-xl transition-all duration-150",
+              trimmed && !disabled
+                ? "bg-primary text-primary-foreground shadow-[0_4px_16px_-4px_rgba(168,235,18,0.5)] hover:bg-primary/90 active:scale-95"
+                : "bg-white/[0.05] text-muted-foreground/25",
+              "disabled:pointer-events-none",
+            )}
+          >
+            <ArrowUp className="size-3.5" />
+          </button>
+        </div>
       </div>
-      <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-        Enter to send · Shift+Enter for new line
-      </p>
     </div>
   );
 }

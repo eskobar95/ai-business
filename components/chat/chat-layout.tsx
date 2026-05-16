@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { useChatStream, type ChatMessage } from "@/hooks/use-chat-stream";
 import { cn } from "@/lib/utils";
 
@@ -52,60 +51,85 @@ export function ChatLayout({
   const statusDot: "active" | "idle" = isLoading ? "active" : "idle";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-row overflow-hidden">
-      {/* ── Chat pane ── */}
-      <section
-        className={cn(
-          "relative flex min-h-0 flex-col overflow-hidden",
-          "bg-[radial-gradient(900px_500px_at_20%_0%,rgba(168,235,18,0.06),transparent_55%)]",
-          "transition-[flex-basis] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
-          artifactOpen ? "basis-[25%] min-w-[240px]" : "basis-full",
-        )}
-      >
-        {/* Agent header */}
-        <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <AgentAvatar name={agentName} status={statusDot} size="sm" />
-            <div className="min-w-0 flex items-baseline gap-2">
-              <p className="truncate text-[13px] font-semibold tracking-tight text-foreground">
-                {agentName}
-              </p>
-              <span className="text-[11px] text-muted-foreground/40 tabular-nums">
-                {isLoading ? "streaming…" : artifactOpen ? "split view" : slugLabel}
-              </span>
+    <div className="flex h-full min-h-0 w-full p-4 sm:p-5">
+      <div className="flex min-h-0 w-full flex-row overflow-hidden rounded-2xl border border-white/[0.07] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_48px_-12px_rgba(0,0,0,0.5)]">
+        {/* ── Chat pane ── */}
+        <section
+          className={cn(
+            "relative flex min-h-0 flex-col overflow-hidden bg-[#0d0d0f]",
+            "bg-[radial-gradient(800px_400px_at_30%_0%,rgba(168,235,18,0.05),transparent_60%)]",
+            "transition-[flex-basis] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+            artifactOpen ? "basis-[28%] min-w-[220px]" : "basis-full",
+          )}
+        >
+          {/* Agent header */}
+          <div className="relative z-10 flex h-14 shrink-0 items-center justify-between border-b border-white/[0.05] px-4 sm:px-5">
+            {/* Left: avatar + name */}
+            <div className="flex min-w-0 items-center gap-3">
+              {/* Avatar with correct ring color for this bg */}
+              <div className="relative shrink-0">
+                <span className="flex size-8 items-center justify-center rounded-xl bg-white/[0.06] text-[13px] font-semibold text-foreground/70 ring-1 ring-white/[0.08]">
+                  {agentName.trim().charAt(0).toUpperCase()}
+                </span>
+                <span
+                  className={cn(
+                    "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-[#0d0d0f]",
+                    isLoading ? "bg-primary animate-pulse" : "bg-emerald-500",
+                  )}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold leading-none tracking-tight text-foreground">
+                  {agentName}
+                </p>
+                <p className="mt-0.5 text-[10px] leading-none text-muted-foreground/40">
+                  {isLoading ? "streaming…" : slugLabel}
+                </p>
+              </div>
             </div>
+
+            {/* Right: state pill */}
+            <span className={cn(
+              "hidden rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide sm:block",
+              isLoading
+                ? "bg-primary/10 text-primary/80"
+                : "bg-white/[0.04] text-muted-foreground/40",
+            )}>
+              {isLoading ? "Streaming" : "Ready"}
+            </span>
           </div>
-        </div>
 
-        {/* Scrollable messages — fills all remaining space */}
-        <ChatMessages
-          messages={messages}
-          isLoading={isLoading}
-          agentLabel={agentName}
-          onViewArtifactMessage={(id) => setArtifactMessageId(id)}
-          onQuestionAnswer={(questionId, answer) =>
-            void send(sessionId, businessId, `[answer:${questionId}] ${answer}`)
-          }
-        />
-
-        {/* Fixed input at the bottom */}
-        <div className="shrink-0 border-t border-white/[0.06] bg-background/5 px-4 pb-5 pt-3 sm:px-6 backdrop-blur-sm">
-          <ChatInput
-            onSend={(text) => void send(sessionId, businessId, text)}
-            disabled={isLoading}
+          {/* Scrollable messages */}
+          <ChatMessages
+            messages={messages}
+            isLoading={isLoading}
+            agentLabel={agentName}
+            onViewArtifactMessage={(id) => setArtifactMessageId(id)}
+            onQuestionAnswer={(questionId, answer) =>
+              void send(sessionId, businessId, `[answer:${questionId}] ${answer}`)
+            }
           />
-        </div>
-      </section>
 
-      {/* ── Artifact pane ── */}
-      <div
-        className={cn(
-          "min-h-0 overflow-hidden border-l border-white/[0.06] bg-[#0c0c0e] backdrop-blur-md",
-          "transition-[flex-basis,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
-          artifactOpen ? "basis-[75%] min-w-0 opacity-100" : "basis-0 opacity-0",
-        )}
-      >
-        <ArtifactPanel artifact={activeArtifact} onClose={() => setArtifactMessageId(null)} />
+          {/* Fixed input */}
+          <div className="shrink-0 px-4 pb-4 pt-3 sm:px-5">
+            <ChatInput
+              onSend={(text) => void send(sessionId, businessId, text)}
+              disabled={isLoading}
+            />
+          </div>
+        </section>
+
+        {/* ── Artifact pane ── */}
+        <div
+          className={cn(
+            "min-h-0 overflow-hidden border-l border-white/[0.05] bg-[#0b0b0d]",
+            "transition-[flex-basis,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+            artifactOpen ? "basis-[72%] min-w-0 opacity-100" : "basis-0 opacity-0",
+          )}
+        >
+          <ArtifactPanel artifact={activeArtifact} onClose={() => setArtifactMessageId(null)} />
+        </div>
       </div>
     </div>
   );
