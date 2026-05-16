@@ -4,6 +4,7 @@ import { ApprovalsBoardClient } from "@/components/approvals/approvals-board-cli
 import { backfillApprovedSprintBriefs } from "@/lib/approvals/actions";
 import { listApprovalsGroupedForBusiness } from "@/lib/approvals/queries";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
+import { requireSessionUserId } from "@/lib/roster/session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,14 @@ export default async function ApprovalsPage({
   const businessId = await resolveBusinessIdParam(sp.businessId, "/dashboard/approvals");
 
   // Schedule backfill to run after the response is sent — safe with Next.js `after()`.
+  // userId must be read here (outside after()) because cookies() is unavailable inside after().
   // Idempotent: skips approvals whose missions already have tasks.
-  after(async () => {
-    await backfillApprovedSprintBriefs(businessId).catch(() => {});
-  });
+  const userId = await requireSessionUserId().catch(() => null);
+  if (userId) {
+    after(async () => {
+      await backfillApprovedSprintBriefs(businessId, userId).catch(() => {});
+    });
+  }
 
   const grouped = await listApprovalsGroupedForBusiness(businessId);
 

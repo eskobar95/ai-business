@@ -134,10 +134,15 @@ export async function rejectArtifact(approvalId: string, comment: string): Promi
  * Finds all approved PO sprint brief approvals for a business that have not yet
  * had EM decomposition run, and triggers it for each. Safe to call repeatedly —
  * `runEngineeringManagerDecomposition` is idempotent (skips if tasks already exist).
+ *
+ * Pass `userId` when calling from inside `after()` — cookies() is not available there.
  */
-export async function backfillApprovedSprintBriefs(businessId: string): Promise<void> {
-  const userId = await requireSessionUserId();
-  await assertUserBusinessAccess(userId, businessId);
+export async function backfillApprovedSprintBriefs(
+  businessId: string,
+  userId?: string,
+): Promise<void> {
+  const resolvedUserId = userId ?? (await requireSessionUserId());
+  await assertUserBusinessAccess(resolvedUserId, businessId);
 
   const db = getDb();
   const rows = await db.query.approvals.findMany({
