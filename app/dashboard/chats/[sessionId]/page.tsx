@@ -40,28 +40,24 @@ export default async function ChatSessionPage({
   }));
 
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link
-            href={`/dashboard/chats?businessId=${encodeURIComponent(businessId)}`}
-            className="text-muted-foreground hover:text-foreground text-[12px] font-medium transition-colors"
-          >
-            ← All chats
-          </Link>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex h-12 shrink-0 items-center border-b border-white/[0.06] px-5">
+        <Link
+          href={`/dashboard/chats?businessId=${encodeURIComponent(businessId)}`}
+          className="text-muted-foreground/60 hover:text-foreground flex items-center gap-1.5 text-[12px] font-medium transition-colors"
+        >
+          <span aria-hidden>←</span> All chats
+        </Link>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-        <div className="mx-auto flex h-[min(calc(100dvh-9rem),860px)] w-full max-w-6xl min-h-[480px] flex-1 flex-col">
-          <ChatLayout
-            sessionId={session.id}
-            businessId={businessId}
-            agentName={session.agent.name}
-            agentSlug={session.agent.slug ?? undefined}
-            initialMessages={initialMessages}
-          />
-        </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ChatLayout
+          sessionId={session.id}
+          businessId={businessId}
+          agentName={session.agent.name}
+          agentSlug={session.agent.slug ?? undefined}
+          initialMessages={initialMessages}
+        />
       </div>
     </div>
   );

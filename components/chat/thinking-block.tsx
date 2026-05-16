@@ -1,9 +1,23 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
+
+function ThinkingDots() {
+  return (
+    <span className="inline-flex items-center gap-[2px]" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="size-[3px] rounded-full bg-current"
+          style={{ animation: `typingBounce 1.2s ease-in-out ${i * 0.18}s infinite` }}
+        />
+      ))}
+    </span>
+  );
+}
 
 export function ThinkingBlock({
   thinking,
@@ -14,56 +28,54 @@ export function ThinkingBlock({
   thinkingDone?: boolean;
   isStreaming?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [peek, setPeek] = useState(false);
+  const isActive = !thinkingDone && isStreaming;
 
   useEffect(() => {
-    if (isStreaming && thinkingDone !== true) setExpanded(true);
-  }, [isStreaming, thinkingDone]);
-
-  useEffect(() => {
-    if (thinkingDone && !isStreaming) setExpanded(false);
-  }, [thinkingDone, isStreaming]);
+    if (isActive) setPeek(false);
+  }, [isActive]);
 
   if (thinking === undefined) return null;
 
-  const hasText = Boolean(thinking.trim());
-
   return (
-    <div className="border-border/70 bg-muted/15 mb-3 overflow-hidden rounded-xl border">
+    <div className="mb-2">
+      {/* Inline indicator row */}
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="hover:bg-muted/25 flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors"
-      >
-        <span className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-          <Sparkles className="text-primary size-3.5 shrink-0" aria-hidden />
-          Reasoning
-        </span>
-        {expanded ? (
-          <ChevronUp className="text-muted-foreground size-4 shrink-0" aria-hidden />
-        ) : (
-          <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
-        )}
-      </button>
-      <div
+        onClick={() => setPeek((v) => !v)}
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none",
-          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          "group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-all",
+          "hover:bg-white/[0.04]",
+          isActive ? "cursor-default" : "cursor-pointer",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
-          <div
-            className={cn(
-              "border-border/40 border-t px-3 pb-3",
-              expanded ? "max-h-48 overflow-y-auto opacity-100" : "pointer-events-none opacity-0",
-            )}
-          >
-            <p className="text-muted-foreground mt-2 text-sm italic leading-relaxed whitespace-pre-wrap">
-              {hasText ? thinking : isStreaming ? "…" : "—"}
-            </p>
-          </div>
+        <Sparkles
+          className={cn(
+            "size-2.5 shrink-0 transition-colors",
+            isActive ? "text-primary/60 animate-pulse" : "text-muted-foreground/30 group-hover:text-muted-foreground/50",
+          )}
+          aria-hidden
+        />
+        <span className={cn(
+          "text-[10px] tracking-wide transition-colors",
+          isActive ? "text-muted-foreground/50 italic" : "text-muted-foreground/30 group-hover:text-muted-foreground/50",
+        )}>
+          {isActive ? (
+            <span className="flex items-center gap-1">thinking <ThinkingDots /></span>
+          ) : (
+            peek ? "hide reasoning" : "show reasoning"
+          )}
+        </span>
+      </button>
+
+      {/* Peek content — only if done and user toggles */}
+      {!isActive && peek && thinking.trim() && (
+        <div className="mt-1.5 border-l-2 border-white/[0.08] pl-3">
+          <p className="text-[11px] italic leading-relaxed text-muted-foreground/40 whitespace-pre-wrap line-clamp-6">
+            {thinking}
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

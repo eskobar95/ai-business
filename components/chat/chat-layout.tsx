@@ -52,66 +52,60 @@ export function ChatLayout({
   const statusDot: "active" | "idle" = isLoading ? "active" : "idle";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="relative flex min-h-0 flex-1 flex-row overflow-hidden rounded-3xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
-        <section
-          className={cn(
-            "relative flex min-h-0 flex-col bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(168,235,18,0.12),transparent_55%)] transition-[flex-basis,flex-grow,width] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
-            artifactOpen ? "basis-[25%] min-w-[260px]" : "basis-full",
-          )}
-        >
-          <div className="border-border/55 relative z-[1] border-b backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3">
-                <AgentAvatar name={agentName} status={statusDot} size="sm" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-foreground truncate text-sm font-semibold tracking-tight">
-                      {agentName}
-                    </p>
-                    <span className="text-muted-foreground text-xs">
-                      · {artifactOpen ? "split view" : "chat"}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground truncate text-[11px]">{slugLabel}</p>
-                </div>
-              </div>
-              <span className="text-muted-foreground hidden text-[11px] sm:block">
-                {isLoading ? "Streaming" : "Ready"}
+    <div className="flex h-full min-h-0 w-full flex-row overflow-hidden">
+      {/* ── Chat pane ── */}
+      <section
+        className={cn(
+          "relative flex min-h-0 flex-col overflow-hidden",
+          "bg-[radial-gradient(900px_500px_at_20%_0%,rgba(168,235,18,0.06),transparent_55%)]",
+          "transition-[flex-basis] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+          artifactOpen ? "basis-[25%] min-w-[240px]" : "basis-full",
+        )}
+      >
+        {/* Agent header */}
+        <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <AgentAvatar name={agentName} status={statusDot} size="sm" />
+            <div className="min-w-0 flex items-baseline gap-2">
+              <p className="truncate text-[13px] font-semibold tracking-tight text-foreground">
+                {agentName}
+              </p>
+              <span className="text-[11px] text-muted-foreground/40 tabular-nums">
+                {isLoading ? "streaming…" : artifactOpen ? "split view" : slugLabel}
               </span>
             </div>
           </div>
-
-          <ChatMessages
-            messages={messages}
-            isLoading={isLoading}
-            agentLabel={agentName}
-            onViewArtifactMessage={(id) => setArtifactMessageId(id)}
-            onQuestionAnswer={(questionId, answer) =>
-              void send(
-                sessionId,
-                businessId,
-                `[answer:${questionId}] ${answer}`,
-              )
-            }
-          />
-
-          <div className="border-border/50 bg-background/10 px-5 pb-4 pt-3 backdrop-blur-sm sm:px-6">
-            <ChatInput
-              onSend={(text) => void send(sessionId, businessId, text)}
-              disabled={isLoading}
-            />
-          </div>
-        </section>
-
-        <div
-          className={cn(
-            "min-h-0 bg-card/98 shadow-[inset_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-md transition-[flex-basis,width,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
-            artifactOpen ? "basis-[75%] min-w-0 opacity-100" : "basis-0 overflow-hidden opacity-0",
-          )}
-        >
-          <ArtifactPanel artifact={activeArtifact} onClose={() => setArtifactMessageId(null)} />
         </div>
+
+        {/* Scrollable messages — fills all remaining space */}
+        <ChatMessages
+          messages={messages}
+          isLoading={isLoading}
+          agentLabel={agentName}
+          onViewArtifactMessage={(id) => setArtifactMessageId(id)}
+          onQuestionAnswer={(questionId, answer) =>
+            void send(sessionId, businessId, `[answer:${questionId}] ${answer}`)
+          }
+        />
+
+        {/* Fixed input at the bottom */}
+        <div className="shrink-0 border-t border-white/[0.06] bg-background/5 px-4 pb-5 pt-3 sm:px-6 backdrop-blur-sm">
+          <ChatInput
+            onSend={(text) => void send(sessionId, businessId, text)}
+            disabled={isLoading}
+          />
+        </div>
+      </section>
+
+      {/* ── Artifact pane ── */}
+      <div
+        className={cn(
+          "min-h-0 overflow-hidden border-l border-white/[0.06] bg-[#0c0c0e] backdrop-blur-md",
+          "transition-[flex-basis,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+          artifactOpen ? "basis-[75%] min-w-0 opacity-100" : "basis-0 opacity-0",
+        )}
+      >
+        <ArtifactPanel artifact={activeArtifact} onClose={() => setArtifactMessageId(null)} />
       </div>
     </div>
   );
