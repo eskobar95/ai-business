@@ -254,32 +254,32 @@ export async function runProductOwnerBriefing(
       }
     }
 
-    // Wrap existence check + sprint insert + approval insert in a single transaction
-    // to prevent TOCTOU races (two concurrent calls both passing the check) and
-    // partial failures (orphan sprint with no approval artifact).
-    const { sprintId, approvalId } = await db.transaction(async (tx) => {
-      const existingSprint = await tx.query.sprints.findFirst({
-        where: eq(sprints.missionId, missionId),
-        columns: { id: true },
-      });
-      if (existingSprint) {
-        throw new Error("Mission already has a sprint brief");
-      }
+    // Neon HTTP driver does not support transactions; use sequential inserts with
+    // manual cleanup on failure to avoid orphan rows.
+    const existingSprint = await db.query.sprints.findFirst({
+      where: eq(sprints.missionId, missionId),
+      columns: { id: true },
+    });
+    if (existingSprint) {
+      return { success: false, error: "Mission already has a sprint brief" };
+    }
 
-      const [sprintRow] = await tx
-        .insert(sprints)
-        .values({
-          missionId,
-          name: "Sprint 1",
-          goal: poOutputMarkdown,
-          status: "planning",
-        })
-        .returning({ id: sprints.id });
+    const [sprintRow] = await db
+      .insert(sprints)
+      .values({
+        missionId,
+        name: "Sprint 1",
+        goal: poOutputMarkdown,
+        status: "planning",
+      })
+      .returning({ id: sprints.id });
 
-      if (!sprintRow?.id) throw new Error("Failed to create sprint");
+    if (!sprintRow?.id) throw new Error("Failed to create sprint");
 
-      const approvalTitle = `PO Sprint Brief — ${mission.name}`;
-      const [approvalRow] = await tx
+    const approvalTitle = `PO Sprint Brief — ${mission.name}`;
+    let approvalRow: { id: string } | undefined;
+    try {
+      const rows = await db
         .insert(approvals)
         .values({
           businessId,
@@ -293,11 +293,17 @@ export async function runProductOwnerBriefing(
           },
         })
         .returning({ id: approvals.id });
+      approvalRow = rows[0];
+    } catch (approvalErr) {
+      // Approval failed — remove the orphan sprint row and propagate.
+      await db.delete(sprints).where(eq(sprints.id, sprintRow.id)).catch(() => {});
+      throw approvalErr;
+    }
 
-      if (!approvalRow?.id) throw new Error("Failed to create approval");
+    if (!approvalRow?.id) throw new Error("Failed to create approval");
 
-      return { sprintId: sprintRow.id, approvalId: approvalRow.id };
-    });
+    const sprintId = sprintRow.id;
+    const approvalId = approvalRow.id;
 
     revalidatePath("/dashboard/approvals");
     revalidatePath(`/dashboard/missions/${missionId}`);
