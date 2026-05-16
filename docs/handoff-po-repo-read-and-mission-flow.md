@@ -14,7 +14,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 2. PO to propose **missions** with validation contracts.
 3. Missions → **PRD** (mission fields) → **sprint brief** (PO) → **human approval** → **EM decomposition** → **tasks** → **runners** (local Cursor SDK with repo checkout).
 
-**Core gap:** PO chat and PO briefing do **not** have IDE-like file read access today—only a **static GitHub API snapshot** (and briefing is still **simulated**).
+**Core gap:** PO briefing is still **simulated**. PO chat now gets **live file/directory prefetch** when the user names allowlisted repo paths (plus static snapshot); still **not** a full IDE-style arbitrary browse without naming paths.
 
 ---
 
@@ -24,19 +24,18 @@ The team has framed the platform and connected GitHub, but does not know how to 
 
 | State | What |
 |-------|------|
-| **Branch** | `main` |
-| **Phase 0 merged** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) → merge commit `a54f201` on `origin/main` |
-| **Phase 0 feature commits** | `0695a8d` (chat shell), `bc0a780` (handoff doc) |
-| **On `origin/main` now** | GitHub repo snapshot + universal chat shell, AI Elements, `lib/chat/chat-sse.ts`, SSE tool/stage handling |
+| **Branch** | `feat/phase-a-po-repo-tools` — open PR → `main` for Phase A |
+| **Phase A** | PO chat **prefetch**: `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, SSE `repo_tool_start` / `repo_tool_result`, inject `## Requested files` (Product Owner agent only, `slug === product_owner`, GitHub connected). Commit SHA: see PR / `git log`. |
+| **Phase 0 on `main`** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — chat shell + SSE merge `a54f201`; follow-up doc commit `13454d6` |
+| **`origin/main` baseline** | Repo snapshot + universal chat shell + AI Elements |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Work from `main`. Start **Phase A** (PO repo read tools) — see § Phase A.
+**Action for new session:** Merge Phase A PR, then start **Phase B** (mission wizard repo panel) — see § Phase B.
 
-Recent commits (`main`, newest first):
-- `a54f201` — merge PR #41: Phase 0 chat shell + AI Elements + SSE bridge
-- `0695a8d` — feat: universal chat shell, AI Elements renderer, SSE bridge
-- `3693d54` — comprehensive repo snapshot (tree, README, key files, PRs, issues, commits)
-- `01cdd08` — business localPath / grounding
+Recent commits (verify with `git log`):
+- _(Phase A)_ — feat: PO chat repo prefetch (GitHub Contents API)
+- `13454d6` — docs: Phase 0 merged note
+- `a54f201` — merge PR #41 (Phase 0)
 
 ### 2.2 End-to-end flow (as implemented today)
 
@@ -46,7 +45,7 @@ Grill-Me → business memory (memory table, scope=business)
 Dashboard → Agents → Product Owner → Chat session
      (/dashboard/chats/[sessionId])
      POST /api/chat/[sessionId]/send  →  Cursor SDK (server, no local.cwd)
-     Injects: business prefix + GitHub snapshot + agent SOUL
+     Injects: business prefix + GitHub snapshot + (PO only) live "## Requested files" for parsed paths + agent SOUL
      ↓
 Missions wizard (/dashboard/missions/new) → createMission
      Fields: name, project_type, prd, validation_contract + soul sidebar
@@ -72,8 +71,9 @@ Tasks promoted / gates / webhook_trigger → runner/dispatch.ts
 |------------|--------|-----------|
 | GitHub App connect + repo select | Works | `app/dashboard/settings/settings-integrations-section.tsx`, `lib/github/actions.ts`, `github_installations`, `github_installation_selected_repos` |
 | Chat stream + persist messages | Works | `app/api/chat/[sessionId]/send/route.ts`, `hooks/use-chat-stream.ts`, `chat_sessions`, `chat_messages` |
-| Repo snapshot in chat prompt | Partial | `lib/github/repo-context.ts` — README, tree depth≤3, key files, commits/PRs/issues; **not** on-demand file read |
-| PO understands mercflow deeply | **Fails user expectation** | Model may ignore snapshot or answer generically |
+| Repo snapshot in chat prompt | Works | `lib/github/repo-context.ts` — README, tree depth≤3, key files, commits/PRs/issues |
+| PO live path prefetch (`product_owner` + connected repo) | Works | `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, `POST /api/chat/.../send` — parses paths (`lib/`, `src/`, …), GitHub Contents API, injects `## Requested files`; SSE `repo_tool_*` → tool UI |
+| PO understands mercflow deeply | **Partial** | Grounding improves when user names concrete paths; generic questions still depend on model + snapshot |
 | Mission create | Works | `lib/missions/actions.ts`, `app/dashboard/missions/new/mission-wizard.tsx` |
 | PO sprint brief | **Simulated** | `lib/missions/po-briefing-action.ts` line ~153 TODO |
 | Approval gate | Works | `lib/approvals/actions.ts`, `createApproval` from PO briefing |
