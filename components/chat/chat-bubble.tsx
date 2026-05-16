@@ -8,6 +8,7 @@ import type { ChatMessage } from "@/hooks/use-chat-stream";
 import { cn } from "@/lib/utils";
 
 import { ChatMessageBlocks } from "./chat-message-blocks";
+import { MissionProposalCard } from "./mission-proposal-card";
 import { QuestionCard } from "./question-card";
 import { StageIndicator } from "./stage-indicator";
 import { ThinkingBlock } from "./thinking-block";
@@ -54,6 +55,7 @@ export function ChatBubble({
   message,
   agentLabel = "Assistant",
   features,
+  businessId,
   onViewArtifact,
   onQuestionAnswer,
   onToolApproval,
@@ -63,6 +65,7 @@ export function ChatBubble({
   message: ChatMessage;
   agentLabel?: string;
   features?: ChatFeatures;
+  businessId?: string;
   onViewArtifact?: () => void;
   onQuestionAnswer?: (id: string, answer: string) => void;
   onToolApproval?: (toolId: string, approvalId: string, approved: boolean) => void;
@@ -210,6 +213,21 @@ export function ChatBubble({
               )}
           </div>
         )}
+
+        {f.missionProposals &&
+          message.missionProposals &&
+          message.missionProposals.length > 0 &&
+          businessId ? (
+          <div className="mt-2 max-w-[min(82%,560px)] space-y-2">
+            {message.missionProposals.map((p, i) => (
+              <MissionProposalCard
+                key={`${message.id}:mission:${i}:${p.name.slice(0, 24)}`}
+                proposal={p}
+                businessId={businessId}
+              />
+            ))}
+          </div>
+        ) : null}
 
         {isLastInGroup && (
           <time

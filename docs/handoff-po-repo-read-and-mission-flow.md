@@ -14,7 +14,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 2. PO to propose **missions** with validation contracts.
 3. Missions → **PRD** (mission fields) → **sprint brief** (PO) → **human approval** → **EM decomposition** → **tasks** → **runners** (local Cursor SDK with repo checkout).
 
-**Core gap:** PO **chat** still requires **named repo paths** for live prefetch (plus static snapshot); not full IDE-style arbitrary browse. **PO briefing** and **EM decomposition** now call **`runServerAgentOnce`** (no `local.cwd`) when a workspace Cursor API key resolves; otherwise they fall back to the previous simulated markdown / tasks.
+**Core gap:** PO **chat** still requires **named repo paths** for live prefetch (plus static snapshot); not full IDE-style arbitrary browse. **Chat → mission bridge:** PO may emit `<mission>` blocks; the UI parses them and offers **Create mission** (`MissionProposalCard`). **PO briefing** and **EM decomposition** call **`runServerAgentOnce`** when a workspace Cursor API key resolves; otherwise simulated fallbacks.
 
 ---
 
@@ -30,9 +30,10 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | **`origin/main` now** | Phase 0–**C** merged on **`main`** (`runServerAgentOnce`, PO/EM souls, EM parse, approval sprint brief UI). |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
 | **Phase C merged** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) → squash **`e6ee39f`** on `origin/main` |
+| **Phase D** | Branch **`feat/phase-d-chat-mission-bridge`** → `main`: `<mission>` parse (`lib/chat/parse-mission-proposals.ts`), `MissionProposalCard`, PO prompt in `send/route.ts`. Open PR and merge when green. |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Work from **`main`** (Phase C landed). Optional **Phase D** (chat → mission bridge) — see § Phase D.
+**Action for new session:** Merge **Phase D** PR when opened from **`feat/phase-d-chat-mission-bridge`**; optional backlog polish (e.g. E2E for mission card).
 
 Recent commits (`main`, newest first — verify with `git log`):
 - `e6ee39f` — feat: Phase C — real PO briefing + EM server agents (PR #44)
@@ -50,7 +51,8 @@ Grill-Me → business memory (memory table, scope=business)
 Dashboard → Agents → Product Owner → Chat session
      (/dashboard/chats/[sessionId])
      POST /api/chat/[sessionId]/send  →  Cursor SDK (server, no local.cwd)
-     Injects: business prefix + GitHub snapshot + (PO only) live "## Requested files" for parsed paths + agent SOUL
+     Injects: business prefix + GitHub snapshot + (PO only) live "## Requested files" for parsed paths + agent SOUL + (PO only) optional `<mission>` block instructions
+     Client (`use-chat-stream` on `done`): parses `<mission>…</mission>` → **MissionProposalCard** → `createMission` on confirm
      ↓
 Missions wizard (/dashboard/missions/new) → createMission
      Fields: name, project_type, prd, validation_contract + soul sidebar + **repo summary** (connected repo, commits, top-level)
@@ -84,7 +86,7 @@ Tasks promoted / gates / webhook_trigger → runner/dispatch.ts
 | Approval gate + sprint brief UX | Works | `lib/approvals/actions.ts`; approval detail shows **`SprintBriefMarkdown`** when `artifactRef.sprintId` + `sprints.goal` |
 | EM decompose after approve | **Live agent when API key** (else simulated / parse fallback) | `lib/missions/em-decompose-action.ts`, `lib/missions/em-parse.ts`, `app/dashboard/approvals/[approvalId]/em-decompose-button.tsx` |
 | Runner execution | Works (separate process) | `runner/dispatch.ts`, `lib/tasks/auto-trigger.ts`, `webhook_trigger` events |
-| Chat → mission proposal blocks | **Not built** | Discussed in prior session, not implemented |
+| Chat → mission proposal blocks | **Works** (PO chat) | `lib/chat/parse-mission-proposals.ts`, `hooks/use-chat-stream.ts`, `components/chat/mission-proposal-card.tsx`, `lib/chat/chat-config.ts` (`missionProposals`), PO instructions in `send/route.ts` |
 
 ### 2.4 Architecture constraints (do not violate)
 
@@ -266,14 +268,22 @@ Show read-only panel: “Connected repo: eskobar95/mercflow” + last commits.
 
 ---
 
-### Phase D — Chat → mission bridge (P2, optional)
+### Phase D — Chat → mission bridge (P2)
 
-Discussed prior session, not started:
+**Goal:** Parse `<mission>...</mission>` from PO assistant replies and let the user create a DB mission in one click.
 
-- Parse `<mission>...</mission>` blocks from PO chat SSE.
-- `MissionProposalCard` + `createMission()` on user confirm.
+**Implemented:**
 
-**Defer** until Phase A–C stable.
+| Piece | Detail |
+|-------|--------|
+| Parser | `lib/chat/parse-mission-proposals.ts` — strips blocks from rendered markdown; unit tests |
+| Client | `use-chat-stream`: on SSE `done` + `initMessages` hydrate, attach `missionProposals` |
+| UI | `MissionProposalCard` → `createMission` → navigate to mission detail |
+| Prompt | `buildBusinessContext` when `agentSlug === product_owner` documents the block format |
+
+**Acceptance:** PO chat emits a valid block → card appears → confirm creates mission row and opens detail page.
+
+**Defer / follow-ups:** Playwright E2E for the card flow; Conductor widget does not enable `missionProposals` (no `businessId` in shell — intentional).
 
 ---
 
@@ -284,7 +294,8 @@ Discussed prior session, not started:
 | Chat API | `app/api/chat/[sessionId]/send/route.ts` |
 | Chat SSE bridge | `lib/chat/chat-sse.ts` |
 | Chat hook | `hooks/use-chat-stream.ts` |
-| Chat UI shell | `components/chat/chat-shell.tsx`, `chat-layout.tsx`, `chat-bubble.tsx` |
+| Chat mission parse | `lib/chat/parse-mission-proposals.ts` |
+| Chat UI shell | `components/chat/chat-shell.tsx`, `chat-layout.tsx`, `chat-bubble.tsx`, `mission-proposal-card.tsx` |
 | Chat features flags | `lib/chat/chat-config.ts` |
 | Repo snapshot | `lib/github/repo-context.ts` |
 | GitHub token | `lib/github/client.ts` |
@@ -337,12 +348,12 @@ Read docs/handoff-po-repo-read-and-mission-flow.md § Phase B.
 Add repo summary to mission new + detail pages; optional suggestMissionFromRepo.
 ```
 
-### Phase C — PO briefing + EM agent
+### Phase D — Chat → mission bridge
 
 ```
-Read docs/handoff-po-repo-read-and-mission-flow.md § Phase C.
-Replace simulated outputs in po-briefing-action.ts and em-decompose-action.ts with runCursorAgent + repo context from Phase A.
-Integration test: mission → kickstart PO → approve → EM decompose.
+Read docs/handoff-po-repo-read-and-mission-flow.md § Phase D.
+Implement parse-mission-proposals.ts + use-chat-stream done/init parsing + MissionProposalCard + PO prompt in send/route.ts.
+Gate: npm test, typecheck.
 ```
 
 ---
@@ -352,13 +363,13 @@ Integration test: mission → kickstart PO → approve → EM decompose.
 - **Repo:** `eskobar95/mercflow` selected in Integrations (1 of N); must click **Save selection**.
 - **Env:** `DATABASE_URL`, `CURSOR_API_KEY` or per-business encrypted key, `GITHUB_APP_*`, `ENCRYPTION_KEY`.
 - **Cursor model in chat:** `composer-2` hardcoded in send route.
-- **PO agent:** Enterprise template slug `product_owner`; SOUL does not mention GitHub — update after Phase A.
+- **PO agent:** Enterprise template slug `product_owner`; chat route adds GitHub + optional `<mission>` block instructions (Phase D).
 
 ---
 
 ## 7. Out of scope for this handoff
 
-- Mission proposal cards from chat (Phase D).
+- Playwright E2E for mission proposal cards (follow-up).
 - Notion/Linear MCP for PO (TOOLS.md lists them; separate integration).
 - Moving chat to `local.cwd` (breaks server-deploy model).
 - Auto-trigger EM on approve without human button (product choice; currently manual `EMDecomposeButton`).

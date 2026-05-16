@@ -94,6 +94,27 @@ async function buildBusinessContext(
     );
   }
 
+  if (isPo) {
+    lines.push(
+      "",
+      "## Mission proposal format (optional)",
+      "When you identify a concrete, well-scoped mission opportunity, you MAY append one or more structured blocks at the **end** of your reply.",
+      "Each block uses XML-like tags and line-oriented keys exactly like this:",
+      "",
+      "<mission>",
+      "name: Short mission title",
+      "goal: Two to five sentences describing scope and outcomes (PRD-style summary).",
+      "validationContract: Testable done criteria the team can verify.",
+      "projectType: new_project | existing_codebase | feature | bugfix",
+      "</mission>",
+      "",
+      "Rules:",
+      "- Emit one block per distinct mission; omit the blocks entirely when unsure.",
+      "- Never fabricate missions solely to populate blocks.",
+      "- Place `<mission>` blocks only after your main answer so the user reads context first.",
+    );
+  }
+
   if (soulText) {
     lines.push(``, `### Business memory`, soulText);
   }

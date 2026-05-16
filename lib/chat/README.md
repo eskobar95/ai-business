@@ -28,3 +28,7 @@ Keys are loaded server-side only by `resolveCursorApiKeyForBusiness` from encryp
 ## Exports
 
 - **`actions.ts`** — `createChatSession`, `updateSessionCursorAgentId`, `saveChatMessage`, `listChatSessions`, `getChatSession`.
+
+## Client parsing
+
+- **`parse-mission-proposals.ts`** — extracts `<mission>…</mission>` blocks from assistant text (see PO prompt in `POST /api/chat/.../send`). Used by `use-chat-stream` on stream `done` and when hydrating history.
