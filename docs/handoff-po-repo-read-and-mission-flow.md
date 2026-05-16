@@ -27,14 +27,16 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | **Branch** | `main` |
 | **Phase B merged** | PR [#43](https://github.com/eskobar95/ai-business/pull/43) → `1678fbb` on `origin/main` (`916552f`: `buildRepoSummaryForMission`, wizard repo panel, `RepoContextBadge`) |
 | **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` (PO prefetch + E2E FAB fix) |
-| **`origin/main` now** | Phase 0–B merged on **`main`**; **Phase C** merges via PR from **`feat/phase-c-real-po-em-agents`** (verify latest after merge). |
+| **`origin/main` now** | Phase 0–**C** merged on **`main`** (`runServerAgentOnce`, PO/EM souls, EM parse, approval sprint brief UI). |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
-| **Phase C** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) — **`feat/phase-c-real-po-em-agents`** → `main`: \`runServerAgentOnce\`, \`load-agent-soul.ts\`, \`em-parse.ts\`, approval sprint brief UI. Verify latest commit on the branch before merge. |
+| **Phase C merged** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) → squash **`e6ee39f`** on `origin/main` |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Merge **Phase C** PR from **`feat/phase-c-real-po-em-agents`** when CI passes; optional **Phase D** (chat → mission bridge) afterward — see § Phase D.
+**Action for new session:** Work from **`main`** (Phase C landed). Optional **Phase D** (chat → mission bridge) — see § Phase D.
 
 Recent commits (`main`, newest first — verify with `git log`):
+- `e6ee39f` — feat: Phase C — real PO briefing + EM server agents (PR #44)
+- `cd0d60b` — docs: handoff Phase B merged
 - `1678fbb` — merge PR #43 (Phase B)
 - `916552f` — feat: mission wizard + detail GitHub repo summary
 - `593e644` — docs: Phase A merged note
