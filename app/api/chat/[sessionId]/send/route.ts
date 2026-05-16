@@ -10,9 +10,19 @@ import {
   applyConductorInstructionPlaceholders,
   loadConductorOrchestrationSnapshot,
 } from "@/lib/conductor/conductor-context";
-import { assertUserBusinessAccess } from "@/lib/grill-me/access";
-import { buildRepoContextForPrompt } from "@/lib/github/repo-context";
 import { CursorChatStreamBridge } from "@/lib/chat/chat-sse";
+import { assertUserBusinessAccess } from "@/lib/grill-me/access";
+import { parseMentionedRepoPaths } from "@/lib/github/mention-paths";
+import {
+  buildRepoContextForPrompt,
+} from "@/lib/github/repo-context";
+import {
+  listRepoPath,
+  MAX_REPO_FILE_BYTES,
+  pathLooksLikeAllowedFile,
+  readRepoFile,
+  RepoFileAccessError,
+} from "@/lib/github/repo-files";
 import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
 
 /** Strip HTML tags from Tiptap-stored memory content for plain-text injection. */
@@ -31,9 +41,11 @@ function htmlToPlainText(html: string): string {
 
 /**
  * Builds a business context prefix for non-Conductor agents.
- * Returns { prefix, localPath } so the route can pass localPath to local.cwd.
  */
-async function buildBusinessContext(businessId: string): Promise<{ prefix: string }> {
+async function buildBusinessContext(
+  businessId: string,
+  opts?: { agentSlug?: string | null; gitHubRepoSectionPresent?: boolean },
+): Promise<{ prefix: string }> {
   const db = getDb();
 
   const [biz] = await db
@@ -52,20 +64,101 @@ async function buildBusinessContext(businessId: string): Promise<{ prefix: strin
   const businessName = biz?.name?.trim() || "the business";
   const soulText = soulRow[0]?.content ? htmlToPlainText(soulRow[0].content) : "";
 
-  const lines: string[] = [
-    `## Your role`,
-    `You are working for **${businessName}**.`,
-    `You are a server-side AI agent. You have NO access to any local filesystem and cannot call GitHub yourself.`,
-    `When a "## GitHub Repository:" section appears below, that snapshot is already loaded — use it; do not tell the user to connect GitHub or grant repo access again.`,
-    `Your ONLY source of codebase knowledge is that injected section. If it is missing, say GitHub is not connected for this workspace.`,
-    `Do NOT reference any other repository than the one named in the snapshot. If information is not in the prompt, say so honestly.`,
-  ];
+  const slug = opts?.agentSlug ?? null;
+  const gh = opts?.gitHubRepoSectionPresent === true;
+  const isPo = slug === "product_owner";
+
+  const lines: string[] = [`## Your role`];
+
+  if (isPo && gh) {
+    lines.push(
+      `You are the **Product Owner** for **${businessName}** (server-side agent).`,
+      `You have no local filesystem. This prompt may include a static "## GitHub Repository:" snapshot and, when the user names repository paths (for example \`lib/foo.ts\`), a "## Requested files" section with live GitHub content — prefer live requested files over the snapshot when both apply.`,
+      `When "## GitHub Repository:" is present, do **not** tell the user to connect GitHub or grant repository access again.`,
+      `If you lack codebase detail, say so honestly and ask which paths to inspect.`,
+    );
+  } else if (!isPo && gh) {
+    lines.push(
+      `You are working for **${businessName}**.`,
+      `You are a server-side AI agent. You have NO access to any local filesystem and cannot call GitHub yourself.`,
+      `When a "## GitHub Repository:" section appears below, that snapshot is already loaded — use it; do not tell the user to connect GitHub or grant repo access again.`,
+      `Your ONLY source of codebase knowledge is that injected section. If it is missing, say GitHub is not connected for this workspace.`,
+      `Do NOT reference any other repository than the one named in the snapshot. If information is not in the prompt, say so honestly.`,
+    );
+  } else {
+    lines.push(
+      `You are working for **${businessName}**.`,
+      `You are a server-side AI agent. You have NO access to any local filesystem.`,
+      `No GitHub repository snapshot is available for this workspace — if the user expects codebase context, explain that GitHub is not connected (Settings → Integrations).`,
+      `Do NOT invent repository structure or file contents.`,
+    );
+  }
 
   if (soulText) {
     lines.push(``, `### Business memory`, soulText);
   }
 
   return { prefix: lines.join("\n") };
+}
+
+async function prefetchRepoPathsMarkdown(opts: {
+  businessId: string;
+  message: string;
+  send: (event: string, data: unknown) => void;
+}): Promise<{ markdown: string; pathCount: number }> {
+  const paths = parseMentionedRepoPaths(opts.message);
+  if (paths.length === 0) return { markdown: "", pathCount: 0 };
+
+  let injected = "";
+  for (let i = 0; i < paths.length; i++) {
+    const path = paths[i]!;
+    const toolId = `repo:${i}:${path}`;
+    const isFile = pathLooksLikeAllowedFile(path);
+    const kind = isFile ? "read" : "list";
+    opts.send("repo_tool_start", { id: toolId, path, kind });
+
+    try {
+      if (isFile) {
+        const { content, truncated } = await readRepoFile(opts.businessId, path);
+        injected += `\n### File: \`${path}\`\n\`\`\`\n${content}\n\`\`\`\n`;
+        if (truncated) {
+          injected += `_Truncated to ${MAX_REPO_FILE_BYTES} bytes._\n`;
+        }
+        opts.send("repo_tool_result", {
+          id: toolId,
+          path,
+          ok: true,
+          kind,
+          lines: content.split("\n").length,
+        });
+      } else {
+        const { entries } = await listRepoPath(opts.businessId, path);
+        const lines = entries
+          .map((entry) => `- ${entry.type === "dir" ? "[dir]" : "[file]"} \`${entry.path}\``)
+          .join("\n");
+        injected += `\n### Directory: \`${path}\`\n${lines}\n`;
+        opts.send("repo_tool_result", {
+          id: toolId,
+          path,
+          ok: true,
+          kind,
+          lines: entries.length,
+        });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof RepoFileAccessError ? e.message : "Fetch failed";
+      injected += `\n### ${isFile ? "File" : "Directory"}: \`${path}\`\n_Error: ${msg}_\n`;
+      opts.send("repo_tool_result", {
+        id: toolId,
+        path,
+        ok: false,
+        kind,
+        errorText: msg,
+      });
+    }
+  }
+
+  return { markdown: injected.trim(), pathCount: paths.length };
 }
 
 export const runtime = "nodejs";
@@ -124,7 +217,7 @@ export async function POST(
 
   const agentRow = await db.query.agents.findFirst({
     where: eq(agents.id, session.agentId),
-    columns: { id: true, name: true, isPlatformDefault: true },
+    columns: { id: true, name: true, isPlatformDefault: true, slug: true },
     with: { documents: true },
   });
   if (!agentRow) {
@@ -133,22 +226,28 @@ export async function POST(
 
   let soulContent = agentRow.documents.find((d) => d.slug === "soul")?.content ?? "";
 
+  let gitHubRepoConnected = false;
+
   if (agentRow.isPlatformDefault) {
     // Conductor: inject full orchestration snapshot (roster, missions, approvals)
     const snap = await loadConductorOrchestrationSnapshot(businessId);
     soulContent = applyConductorInstructionPlaceholders(soulContent, snap);
   } else {
-    // All other agents: prefix with business context + live GitHub repo snapshot
-    const [bizCtx, repoContext] = await Promise.all([
-      buildBusinessContext(businessId),
-      buildRepoContextForPrompt(businessId),
-    ]);
+    const repoContext = await buildRepoContextForPrompt(businessId);
+    gitHubRepoConnected = !!repoContext;
+    const bizCtx = await buildBusinessContext(businessId, {
+      agentSlug: agentRow.slug,
+      gitHubRepoSectionPresent: gitHubRepoConnected,
+    });
     const contextParts = [bizCtx.prefix];
     if (repoContext) contextParts.push(repoContext);
     else contextParts.push(`\n> No GitHub repository connected. Connect one in Settings → Integrations.`);
     if (soulContent) contextParts.push("---", soulContent);
     soulContent = contextParts.join("\n\n");
   }
+
+  const isProductOwnerChat =
+    !agentRow.isPlatformDefault && agentRow.slug === "product_owner";
 
   const apiKey = await resolveCursorApiKeyForBusiness(businessId);
   if (!apiKey) {
@@ -179,7 +278,6 @@ export async function POST(
           .join("\n\n")
       : "";
   const systemPrompt = soulContent + historyPrefix;
-  const fullPrompt = `${systemPrompt}\n\nUser: ${message}\n\nAssistant:`;
 
   const encoder = new TextEncoder();
   let assistantContent = "";
@@ -213,6 +311,30 @@ export async function POST(
 
         bridge.stage("Connected to agent");
         bridge.stage("Processing your message");
+
+        let repoInject = "";
+        if (isProductOwnerChat && gitHubRepoConnected) {
+          bridge.stage("Fetching repository paths");
+          const { markdown: fetched, pathCount } = await prefetchRepoPathsMarkdown({
+            businessId,
+            message,
+            send,
+          });
+          if (pathCount > 0 && fetched) {
+            repoInject =
+              `\n\n## Requested files (live from GitHub — ground answers in this section)\n${fetched}\n\n` +
+              `The static "## GitHub Repository:" snapshot above may be stale; prefer these blocks when both exist.\n` +
+              `Never tell the user to "connect GitHub" — the repository is already linked.\n`;
+          } else if (pathCount === 0) {
+            repoInject =
+              `\n\n## Repository file access\n` +
+              `When the user asks about specific implementation files, ask them to name repository paths ` +
+              `(e.g. \`lib/missions/actions.ts\`) so the platform can fetch live content into this prompt.\n` +
+              `Never tell the user to "connect GitHub" when a "## GitHub Repository:" section appears above — the integration is already active.\n`;
+          }
+        }
+
+        const fullPrompt = `${systemPrompt}${repoInject}\n\nUser: ${message}\n\nAssistant:`;
 
         const run = await cursorAgent.send(fullPrompt);
 

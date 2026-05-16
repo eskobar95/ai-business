@@ -150,6 +150,64 @@ export function useChatStream(): UseChatStreamReturn {
                           ? payload.durationSec
                           : m.thinkingDurationSec,
                     };
+                  case "repo_tool_start": {
+                    const id = String(payload.id ?? "");
+                    const path = String(payload.path ?? "");
+                    const kind = String(payload.kind ?? "read");
+                    const name = kind === "list" ? "list_repo_path" : "read_repo_file";
+                    const prevTools = m.toolCalls ?? [];
+                    const idx = prevTools.findIndex((t) => t.id === id);
+                    const nextTool: ChatToolCall = {
+                      id,
+                      name,
+                      state: "input-streaming",
+                      input: { path },
+                    };
+                    const toolCalls =
+                      idx >= 0
+                        ? prevTools.map((t, i) => (i === idx ? { ...t, ...nextTool } : t))
+                        : [...prevTools, nextTool];
+                    return { ...m, toolCalls };
+                  }
+                  case "repo_tool_result": {
+                    const id = String(payload.id ?? "");
+                    const path = String(payload.path ?? "");
+                    const kind = String(payload.kind ?? "read");
+                    const name = kind === "list" ? "list_repo_path" : "read_repo_file";
+                    const ok = payload.ok === true;
+                    const errorText =
+                      typeof payload.errorText === "string" ? payload.errorText : undefined;
+                    const lines = typeof payload.lines === "number" ? payload.lines : undefined;
+                    const result = ok
+                      ? kind === "list"
+                        ? `Listed ${lines ?? 0} entries under \`${path}\``
+                        : `Read ${lines ?? 0} line(s) from \`${path}\``
+                      : undefined;
+                    const prevTools = m.toolCalls ?? [];
+                    const idx = prevTools.findIndex((t) => t.id === id);
+                    const base =
+                      idx >= 0
+                        ? prevTools[idx]!
+                        : ({
+                            id,
+                            name,
+                            state: "input-streaming" as const,
+                            input: { path },
+                          } satisfies ChatToolCall);
+                    const nextTool: ChatToolCall = {
+                      ...base,
+                      name,
+                      state: ok ? "output-available" : "output-error",
+                      input: { path },
+                      result: ok ? result : undefined,
+                      errorText: ok ? undefined : errorText ?? "Failed",
+                    };
+                    const toolCalls =
+                      idx >= 0
+                        ? prevTools.map((t, i) => (i === idx ? nextTool : t))
+                        : [...prevTools, nextTool];
+                    return { ...m, toolCalls };
+                  }
                   case "tool_call": {
                     const id = String(payload.id ?? "");
                     const name = String(payload.name ?? "tool");

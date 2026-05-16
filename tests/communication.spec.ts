@@ -86,6 +86,18 @@ test.describe("communication graph", () => {
     const row = page.getByTestId("communication-edge-list").locator("tr", {
       hasText: fromRole,
     });
+    // Hide fixed Conductor chat launcher so it cannot block the delete button hit-target.
+    await page.evaluate(() => {
+      const selectors = [
+        '[aria-label="Chat with Conductor"]',
+        '[title="Chat with Conductor"]',
+      ];
+      for (const sel of selectors) {
+        document.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+          el.style.setProperty("display", "none", "important");
+        });
+      }
+    });
     await row.getByTestId(/^communication-edge-delete-/).click();
     await expect(page.getByText(fromRole, { exact: true })).toHaveCount(0, {
       timeout: 60_000,

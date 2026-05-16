@@ -29,7 +29,7 @@ interface GhIssue  { number: number; title: string; state: string; body: string 
 interface GhContent { content?: string; encoding?: string; message?: string }
 
 /** Parse "owner/repo" from a full GitHub URL or a "owner/repo" shorthand. */
-function parseOwnerRepo(url: string): { owner: string; repo: string } | null {
+export function parseOwnerRepo(url: string): { owner: string; repo: string } | null {
   const m = url.match(/(?:github\.com\/)?([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/.*)?$/);
   if (!m?.[1] || !m[2]) return null;
   return { owner: m[1], repo: m[2] };
@@ -73,7 +73,7 @@ const KEY_FILES = [
  * Order: explicit selection → all repos on the installation → `businesses.github_repo_url`.
  * Matches Grill-Me / settings copy ("no selection → use all available repos").
  */
-async function resolveRepoUrl(businessId: string): Promise<string | null> {
+export async function resolveRepoUrl(businessId: string): Promise<string | null> {
   const db = getDb();
   const installation = await db.query.githubInstallations.findFirst({
     where: eq(githubInstallations.businessId, businessId),
