@@ -29,7 +29,7 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` (PO prefetch + E2E FAB fix) |
 | **`origin/main` now** | Phase 0–B merged on **`main`**; **Phase C** merges via PR from **`feat/phase-c-real-po-em-agents`** (verify latest after merge). |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
-| **Phase C** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) — branch **`feat/phase-c-real-po-em-agents`** (\`runServerAgentOnce\`, \`load-agent-soul.ts\`, \`em-parse.ts\`, approval sprint brief UI). Tip commit **\`5ce4d6a\`** (verify after merge). |
+| **Phase C** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) — **`feat/phase-c-real-po-em-agents`** → `main`: \`runServerAgentOnce\`, \`load-agent-soul.ts\`, \`em-parse.ts\`, approval sprint brief UI. Verify latest commit on the branch before merge. |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
 **Action for new session:** Merge **Phase C** PR from **`feat/phase-c-real-po-em-agents`** when CI passes; optional **Phase D** (chat → mission bridge) afterward — see § Phase D.
