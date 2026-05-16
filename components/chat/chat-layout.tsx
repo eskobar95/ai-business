@@ -64,6 +64,7 @@ export function ChatLayout({
             messages={messages}
             isLoading={isLoading}
             agentLabel={agentName}
+            businessId={businessId}
             onSend={(text) => void send(sessionId, businessId, text)}
             disabled={isLoading}
             onViewArtifactMessage={(id) => setArtifactMessageId(id)}

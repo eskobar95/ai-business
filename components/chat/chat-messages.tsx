@@ -42,6 +42,7 @@ export function ChatMessages({
   isLoading,
   agentLabel = "Assistant",
   features,
+  businessId,
   onViewArtifactMessage,
   onQuestionAnswer,
   onToolApproval,
@@ -52,6 +53,7 @@ export function ChatMessages({
   isLoading: boolean;
   agentLabel?: string;
   features?: ChatFeatures;
+  businessId?: string;
   onViewArtifactMessage?: (messageId: string) => void;
   onQuestionAnswer?: (id: string, answer: string) => void;
   onToolApproval?: (toolId: string, approvalId: string, approved: boolean) => void;
@@ -100,6 +102,7 @@ export function ChatMessages({
                     message={m}
                     agentLabel={agentLabel}
                     features={features}
+                    businessId={businessId}
                     isFirstInGroup={idx === 0}
                     isLastInGroup={idx === group.length - 1}
                     onViewArtifact={

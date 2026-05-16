@@ -11,6 +11,8 @@ export type ChatFeatures = {
   sources?: boolean;
   plan?: boolean;
   tasks?: boolean;
+  /** Render `<mission>` proposal cards from assistant messages (Product Owner bridge). */
+  missionProposals?: boolean;
   /** Compact layout (widget): tighter padding, no full-page chrome */
   compact?: boolean;
 };
@@ -25,6 +27,7 @@ export const CHAT_CONFIGS = {
     sources: true,
     plan: true,
     tasks: true,
+    missionProposals: true,
   } satisfies ChatFeatures,
 
   grillMe: {

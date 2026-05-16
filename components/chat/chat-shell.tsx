@@ -18,6 +18,7 @@ export function ChatShell({
   messages,
   isLoading,
   agentLabel = "Assistant",
+  businessId,
   onSend,
   onStop,
   disabled,
@@ -38,6 +39,8 @@ export function ChatShell({
   onSend: (text: string) => void;
   onStop?: () => void;
   disabled?: boolean;
+  /** Required when `features.missionProposals` is enabled (agent chat). */
+  businessId?: string;
   /** Optional header slot (agent bar, widget title, etc.) */
   header?: ReactNode;
   onViewArtifactMessage?: (messageId: string) => void;
@@ -64,6 +67,7 @@ export function ChatShell({
         isLoading={isLoading}
         agentLabel={agentLabel}
         features={features}
+        businessId={businessId}
         onViewArtifactMessage={onViewArtifactMessage}
         onQuestionAnswer={onQuestionAnswer}
         onToolApproval={onToolApproval}

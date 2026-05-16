@@ -8,6 +8,8 @@ import type {
   ChatTaskBlock,
   ChatToolCall,
 } from "@/lib/chat/chat-message-types";
+import type { ParsedMissionProposal } from "@/lib/chat/parse-mission-proposals";
+import { parseMissionProposals } from "@/lib/chat/parse-mission-proposals";
 
 export type MessageRole = "user" | "assistant";
 
@@ -34,6 +36,8 @@ export type ChatMessage = {
   sources?: ChatSource[];
   plan?: ChatPlanBlock;
   tasks?: ChatTaskBlock[];
+  /** Parsed from `<mission>...</mission>` blocks after stream completes (or on history load). */
+  missionProposals?: ParsedMissionProposal[];
 };
 
 export type UseChatStreamReturn = {
@@ -51,7 +55,17 @@ export function useChatStream(): UseChatStreamReturn {
   const abortRef = useRef<AbortController | null>(null);
 
   const initMessages = useCallback((msgs: ChatMessage[]) => {
-    setMessages(msgs);
+    const normalized = msgs.map((m) => {
+      if (m.role !== "assistant" || !m.content?.includes("<mission")) return m;
+      const { proposals, strippedText } = parseMissionProposals(m.content);
+      if (proposals.length === 0) return m;
+      return {
+        ...m,
+        content: strippedText,
+        missionProposals: proposals,
+      };
+    });
+    setMessages(normalized);
   }, []);
 
   const send = useCallback(
@@ -267,8 +281,16 @@ export function useChatStream(): UseChatStreamReturn {
                           m.artifact.content + (payload.delta as string),
                       },
                     };
-                  case "done":
-                    return { ...m, isStreaming: false };
+                  case "done": {
+                    const { proposals, strippedText } = parseMissionProposals(m.content);
+                    return {
+                      ...m,
+                      isStreaming: false,
+                      content: strippedText,
+                      missionProposals:
+                        proposals.length > 0 ? proposals : undefined,
+                    };
+                  }
                   case "error":
                     return {
                       ...m,
