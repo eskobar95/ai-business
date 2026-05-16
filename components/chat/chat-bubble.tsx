@@ -22,17 +22,32 @@ function isErrorContent(content: string) {
   return content.startsWith("Connection error") || content.startsWith("Error:");
 }
 
-/** Three-dot typing indicator */
-function TypingDots() {
+/**
+ * Minimal loading state — shown before any content arrives.
+ * Three orbs that breathe in sequence (no bounce, no box).
+ */
+function LoadingOrbs({ stage }: { stage?: string | null }) {
   return (
-    <div className="flex items-center gap-[3px] px-1 py-0.5" aria-label="Thinking…">
-      {[0, 1, 2].map((i) => (
+    <div className="flex items-center gap-3" aria-label={stage ?? "Thinking…"} aria-live="polite">
+      <div className="flex items-center gap-[5px]">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="size-1.5 rounded-full bg-primary/50"
+            style={{
+              animation: `orbBreath 1.6s ease-in-out ${i * 0.22}s infinite`,
+            }}
+          />
+        ))}
+      </div>
+      {stage && (
         <span
-          key={i}
-          className="size-1.5 rounded-full bg-current opacity-40"
-          style={{ animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite` }}
-        />
-      ))}
+          className="text-[11px] text-muted-foreground/40 italic"
+          style={{ animation: "orbFadeIn 0.4s ease-out" }}
+        >
+          {stage}
+        </span>
+      )}
     </div>
   );
 }
@@ -53,7 +68,9 @@ export function ChatBubble({
   isLastInGroup?: boolean;
 }) {
   const isUser = message.role === "user";
-  const isTyping = !isUser && message.isStreaming && !message.content && !message.thinking && !message.stage;
+
+  // Pure loading: streaming has started but no real content has arrived yet
+  const isPureLoading = !isUser && message.isStreaming && !message.content && !message.thinking;
 
   /* ── User bubble ── */
   if (isUser) {
@@ -79,14 +96,32 @@ export function ChatBubble({
     );
   }
 
-  /* ── Assistant bubble ── */
+  /* ── Assistant: pure loading state (no content yet) ── */
+  if (isPureLoading) {
+    return (
+      <div className={cn("flex items-start gap-2", isLastInGroup ? "mb-3" : "mb-0.5")}>
+        <div className="mt-0.5 w-6 shrink-0 flex justify-center">
+          {isFirstInGroup !== false && (
+            <span className="flex size-6 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/15">
+              <Bot className="size-3 text-primary/70" aria-hidden />
+            </span>
+          )}
+        </div>
+        <div className="flex min-h-[28px] items-center">
+          <LoadingOrbs stage={message.stage ?? null} />
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Assistant bubble (has content) ── */
   const hasArtifact = message.artifact && (Boolean(message.artifact.title) || Boolean(message.artifact.content));
   const isError = isErrorContent(message.content);
 
   return (
     <div className={cn("flex items-start gap-2", isLastInGroup ? "mb-3" : "mb-0.5")}>
-      {/* Small avatar — only show on first message in a group */}
-      <div className="mt-0.5 shrink-0 w-6 flex justify-center">
+      {/* Small avatar — only on first in group */}
+      <div className="mt-0.5 w-6 shrink-0 flex justify-center">
         {isFirstInGroup !== false && (
           <span className="flex size-6 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/15">
             <Bot className="size-3 text-primary/70" aria-hidden />
@@ -103,19 +138,12 @@ export function ChatBubble({
         )}
 
         <div className={cn(
-          "rounded-2xl rounded-tl-[6px] px-3 py-2.5 text-sm leading-relaxed",
+          "rounded-2xl rounded-tl-[6px] px-3 py-2.5 leading-relaxed",
           isFirstInGroup !== false && "rounded-tl-2xl",
           isError
             ? "bg-destructive/8 border border-destructive/20 text-destructive/90"
             : "bg-white/[0.04] border border-white/[0.06] text-foreground/90",
         )}>
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="text-muted-foreground/50">
-              <TypingDots />
-            </div>
-          )}
-
           {/* Thinking block */}
           {message.thinking !== undefined && (
             <ThinkingBlock
@@ -125,8 +153,8 @@ export function ChatBubble({
             />
           )}
 
-          {/* Stage indicator */}
-          {message.isStreaming && message.stage && (
+          {/* Stage indicator (only shown when content also exists) */}
+          {message.isStreaming && message.stage && message.content && (
             <StageIndicator stage={message.stage} active />
           )}
 
@@ -139,7 +167,7 @@ export function ChatBubble({
           )}
 
           {/* Content */}
-          {message.content && !isTyping && (
+          {message.content && (
             <ChatMarkdown text={message.content} className="text-[13px] leading-relaxed [&>p]:mb-1.5 [&>p:last-child]:mb-0" />
           )}
 
