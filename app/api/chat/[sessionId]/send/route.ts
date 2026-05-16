@@ -10,6 +10,7 @@ import {
   loadConductorOrchestrationSnapshot,
 } from "@/lib/conductor/conductor-context";
 import { assertUserBusinessAccess } from "@/lib/grill-me/access";
+import { buildRepoContextForPrompt } from "@/lib/github/repo-context";
 import { resolveCursorApiKeyForBusiness } from "@/lib/settings/cursor-api-key";
 
 /** Strip HTML tags from Tiptap-stored memory content for plain-text injection. */
@@ -132,9 +133,15 @@ export async function POST(
     const snap = await loadConductorOrchestrationSnapshot(businessId);
     soulContent = applyConductorInstructionPlaceholders(soulContent, snap);
   } else {
-    // All other agents: prefix with business context so they know which business they serve
-    const bizPrefix = await buildBusinessContextPrefix(businessId);
-    soulContent = bizPrefix + (soulContent ? `\n\n---\n\n${soulContent}` : "");
+    // All other agents: prefix with business context + repo snapshot (if GitHub is connected)
+    const [bizPrefix, repoContext] = await Promise.all([
+      buildBusinessContextPrefix(businessId),
+      buildRepoContextForPrompt(businessId),
+    ]);
+    const contextParts = [bizPrefix];
+    if (repoContext) contextParts.push(repoContext);
+    if (soulContent) contextParts.push("---", soulContent);
+    soulContent = contextParts.join("\n\n");
   }
 
   const apiKey = await resolveCursorApiKeyForBusiness(businessId);
