@@ -86,7 +86,8 @@ test.describe("communication graph", () => {
     const row = page.getByTestId("communication-edge-list").locator("tr", {
       hasText: fromRole,
     });
-    await row.getByTestId(/^communication-edge-delete-/).click();
+    // Conductor floating chat button (fixed bottom-right) can intercept clicks on table actions.
+    await row.getByTestId(/^communication-edge-delete-/).click({ force: true });
     await expect(page.getByText(fromRole, { exact: true })).toHaveCount(0, {
       timeout: 60_000,
     });
