@@ -25,17 +25,19 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | State | What |
 |-------|------|
 | **Branch** | `main` |
-| **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` on `origin/main` (feat commits incl. `6521d3c`; E2E fix hides Conductor FAB before communication delete — `31bf79c`) |
-| **`origin/main` now** | Phase 0 + Phase A: chat shell + PO prefetch (`repo-files`, `mention-paths`, SSE `repo_tool_*`, PO-only inject `## Requested files`) |
+| **Phase B merged** | PR [#43](https://github.com/eskobar95/ai-business/pull/43) → `1678fbb` on `origin/main` (`916552f`: `buildRepoSummaryForMission`, wizard repo panel, `RepoContextBadge`) |
+| **Phase A merged** | PR [#42](https://github.com/eskobar95/ai-business/pull/42) → `f6df374` (PO prefetch + E2E FAB fix) |
+| **`origin/main` now** | Phase 0–B: chat shell, PO prefetch, **mission repo summary** on new wizard + mission detail |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Work from **`main`**. Start **Phase B** (mission wizard repo panel) — see § Phase B.
+**Action for new session:** Work from **`main`**. Start **Phase C** (real PO briefing + EM with repo) — see § Phase C.
 
 Recent commits (`main`, newest first — verify with `git log`):
+- `1678fbb` — merge PR #43 (Phase B)
+- `916552f` — feat: mission wizard + detail GitHub repo summary
+- `593e644` — docs: Phase A merged note
 - `f6df374` — merge PR #42 (Phase A)
-- `31bf79c` — fix(e2e): hide Conductor FAB before communication edge delete
-- `6521d3c` — feat: PO chat repo prefetch (GitHub Contents API)
 
 ### 2.2 End-to-end flow (as implemented today)
 
@@ -48,10 +50,10 @@ Dashboard → Agents → Product Owner → Chat session
      Injects: business prefix + GitHub snapshot + (PO only) live "## Requested files" for parsed paths + agent SOUL
      ↓
 Missions wizard (/dashboard/missions/new) → createMission
-     Fields: name, project_type, prd, validation_contract + soul sidebar
-     NO repo injection today
+     Fields: name, project_type, prd, validation_contract + soul sidebar + **repo summary** (connected repo, commits, top-level)
      ↓
-Mission detail → "Kickstart Product Owner"
+Mission detail (/dashboard/missions/[missionId])
+     Header **RepoContextBadge** + tabs → "Kickstart Product Owner"
      runProductOwnerBriefing → sprint (planning) + approval (po_sprint_brief)
      SIMULATED markdown today (TODO: runCursorAgent)
      ↓
@@ -74,7 +76,7 @@ Tasks promoted / gates / webhook_trigger → runner/dispatch.ts
 | Repo snapshot in chat prompt | Works | `lib/github/repo-context.ts` — README, tree depth≤3, key files, commits/PRs/issues |
 | PO live path prefetch (`product_owner` + connected repo) | Works | `lib/github/repo-files.ts`, `lib/github/mention-paths.ts`, `POST /api/chat/.../send` — parses paths (`lib/`, `src/`, …), GitHub Contents API, injects `## Requested files`; SSE `repo_tool_*` → tool UI |
 | PO understands mercflow deeply | **Partial** | Grounding improves when user names concrete paths; generic questions still depend on model + snapshot |
-| Mission create | Works | `lib/missions/actions.ts`, `app/dashboard/missions/new/mission-wizard.tsx` |
+| Mission create + repo-aware UI | Works | `lib/missions/actions.ts`, `lib/github/repo-summary.ts`, `app/dashboard/missions/new/*`, `app/dashboard/missions/[missionId]/page.tsx`, `components/missions/repo-context-badge.tsx` |
 | PO sprint brief | **Simulated** | `lib/missions/po-briefing-action.ts` line ~153 TODO |
 | Approval gate | Works | `lib/approvals/actions.ts`, `createApproval` from PO briefing |
 | EM decompose after approve | Works (simulated output) | `lib/missions/em-decompose-action.ts`, `app/dashboard/approvals/[approvalId]/em-decompose-button.tsx` |
