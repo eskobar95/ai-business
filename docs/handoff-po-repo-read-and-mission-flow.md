@@ -30,10 +30,10 @@ The team has framed the platform and connected GitHub, but does not know how to 
 | **`origin/main` now** | Phase 0–**C** merged on **`main`** (`runServerAgentOnce`, PO/EM souls, EM parse, approval sprint brief UI). |
 | **Phase 0** | PR [#41](https://github.com/eskobar95/ai-business/pull/41) — merge `a54f201`; docs `13454d6` |
 | **Phase C merged** | PR [#44](https://github.com/eskobar95/ai-business/pull/44) → squash **`e6ee39f`** on `origin/main` |
-| **Phase D** | Branch **`feat/phase-d-chat-mission-bridge`** → `main`: `<mission>` parse (`lib/chat/parse-mission-proposals.ts`), `MissionProposalCard`, PO prompt in `send/route.ts`. Open PR and merge when green. |
+| **Phase D** | PR [#45](https://github.com/eskobar95/ai-business/pull/45) — **`feat/phase-d-chat-mission-bridge`** → `main`: \`<mission>\` parse, \`MissionProposalCard\`, PO prompt in \`send/route.ts\`. Merge when green. |
 | **Local UNCOMMITTED** | None expected; run `git status` to confirm |
 
-**Action for new session:** Merge **Phase D** PR when opened from **`feat/phase-d-chat-mission-bridge`**; optional backlog polish (e.g. E2E for mission card).
+**Action for new session:** Merge **Phase D** PR [#45](https://github.com/eskobar95/ai-business/pull/45) when CI passes; optional Playwright E2E for mission card.
 
 Recent commits (`main`, newest first — verify with `git log`):
 - `e6ee39f` — feat: Phase C — real PO briefing + EM server agents (PR #44)
