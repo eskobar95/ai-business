@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import type { RepoSummary } from "@/lib/github/repo-summary-types";
 import { createMission } from "@/lib/missions/actions";
 
 type ProjectType = "new_project" | "existing_codebase" | "feature" | "bugfix";
@@ -20,9 +21,10 @@ const TOTAL_STEPS = 4;
 interface MissionWizardProps {
   businessId: string;
   soulContent?: string | null;
+  repoSummary?: RepoSummary | null;
 }
 
-export function MissionWizard({ businessId, soulContent }: MissionWizardProps) {
+export function MissionWizard({ businessId, soulContent, repoSummary }: MissionWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [pending, start] = useTransition();
@@ -142,6 +144,7 @@ export function MissionWizard({ businessId, soulContent }: MissionWizardProps) {
             goal={goal}
             onGoalChange={setGoal}
             soulContent={soulContent}
+            repoSummary={repoSummary ?? null}
           />
         )}
         {step === 3 && (
@@ -161,6 +164,7 @@ export function MissionWizard({ businessId, soulContent }: MissionWizardProps) {
             name={name}
             goal={goal}
             criteria={criteria}
+            repoSummary={repoSummary ?? null}
           />
         )}
       </div>
@@ -261,14 +265,90 @@ function Step1({
   );
 }
 
+function MissionRepoContextPanel({ repoSummary }: { repoSummary: RepoSummary | null }) {
+  if (!repoSummary) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-white/[0.02] p-4">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Connected repository
+        </p>
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          No GitHub repository linked for this workspace. Connect one in{" "}
+          <span className="text-foreground/90">Settings → Integrations</span> to ground missions in your codebase.
+        </p>
+      </div>
+    );
+  }
+
+  const topLevelLine = repoSummary.topLevel
+    .map((e) => `${e.name}${e.type === "dir" ? "/" : ""}`)
+    .join(", ");
+
+  return (
+    <div className="rounded-lg border border-border bg-white/[0.02] p-4">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Connected repository
+      </p>
+      <p className="mb-3 text-[13px] font-semibold text-foreground">
+        <a
+          href={repoSummary.repoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          {repoSummary.repoName}
+        </a>
+      </p>
+
+      {repoSummary.recentCommits.length > 0 ? (
+        <div className="mb-3">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Recent commits
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {repoSummary.recentCommits.map((c) => (
+              <li key={`${c.sha}-${c.date}-${c.message.slice(0, 20)}`} className="text-[12px] leading-snug">
+                <span className="font-mono text-[11px] text-muted-foreground/90">{c.sha}</span>
+                <span className="text-muted-foreground">: {c.message}</span>
+                {c.date ? (
+                  <span className="ml-1 font-sans text-[10px] text-muted-foreground/70">
+                    (
+                    {new Date(c.date).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    )
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {topLevelLine ? (
+        <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Top-level
+          </p>
+          <p className="break-words font-mono text-[11px] leading-relaxed text-muted-foreground">{topLevelLine}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Step2({
   goal,
   onGoalChange,
   soulContent,
+  repoSummary,
 }: {
   goal: string;
   onGoalChange: (v: string) => void;
   soulContent?: string | null;
+  repoSummary: RepoSummary | null;
 }) {
   const truncated = soulContent
     ? soulContent.length > 300
@@ -304,6 +384,8 @@ function Step2({
           <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground/80">{truncated}</p>
         </div>
       )}
+
+      <MissionRepoContextPanel repoSummary={repoSummary} />
     </div>
   );
 }
@@ -382,11 +464,13 @@ function Step4({
   name,
   goal,
   criteria,
+  repoSummary,
 }: {
   projectType: { id: ProjectType; label: string; description: string };
   name: string;
   goal: string;
   criteria: string[];
+  repoSummary: RepoSummary | null;
 }) {
   const goalPreview = goal.trim().slice(0, 150) + (goal.trim().length > 150 ? "…" : "");
 
@@ -416,6 +500,21 @@ function Step4({
           <span className="text-[13px] font-semibold text-foreground">
             {criteria.length} acceptance {criteria.length === 1 ? "criterion" : "criteria"}
           </span>
+        </ReviewRow>
+
+        <ReviewRow label="Repository">
+          {repoSummary ? (
+            <a
+              href={repoSummary.repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] font-medium text-primary underline-offset-2 hover:underline"
+            >
+              {repoSummary.repoName}
+            </a>
+          ) : (
+            <span className="text-[12px] text-muted-foreground">Not connected — link a repo in Settings → Integrations</span>
+          )}
         </ReviewRow>
       </div>
     </div>

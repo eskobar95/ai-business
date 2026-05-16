@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MissionDetailTabs } from "@/components/missions/mission-detail-tabs";
+import { RepoContextBadge } from "@/components/missions/repo-context-badge";
 import { resolveBusinessIdParam } from "@/lib/dashboard/business-scope";
+import { buildRepoSummaryForMission } from "@/lib/github/repo-summary";
 import { getMissionBundle } from "@/lib/missions/actions";
 import { POBriefButton } from "./po-brief-button";
 import { SprintList } from "./sprint-list";
@@ -37,10 +39,12 @@ export default async function MissionDetailPage({
     }
   }
 
+  const repoSummary = await buildRepoSummaryForMission(businessId).catch(() => null);
+
   return (
     <div className="flex min-h-full flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-6">
-        <nav className="flex items-center gap-2 text-[13px]" aria-label="Breadcrumb">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-6">
+        <nav className="flex min-w-0 flex-1 items-center gap-2 text-[13px]" aria-label="Breadcrumb">
           <Link
             href={`/dashboard/missions?businessId=${encodeURIComponent(businessId)}`}
             className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
@@ -50,6 +54,7 @@ export default async function MissionDetailPage({
           <span className="text-white/20">/</span>
           <span className="font-medium text-foreground">{bundle.mission.name}</span>
         </nav>
+        <RepoContextBadge repoSummary={repoSummary} />
       </div>
 
       <MissionDetailTabs
